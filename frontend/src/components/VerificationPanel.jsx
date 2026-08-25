@@ -58,10 +58,30 @@ export default function VerificationPanel({ case: c, onUpdated }) {
   return null;
 }
 
+// 브라우저가 돌려주는 음성인식 오류 코드를 사람이 이해할 수 있는 한국어 안내로 변환한다.
+function describeSttError(code) {
+  switch (code) {
+    case "not-allowed":
+    case "service-not-allowed":
+      return "마이크 권한이 거부되었습니다. 브라우저 주소창 옆 마이크 아이콘에서 권한을 허용해주세요.";
+    case "no-speech":
+      return "음성이 감지되지 않았습니다. 마이크와의 거리를 확인하고 다시 시도해주세요.";
+    case "audio-capture":
+      return "마이크를 찾을 수 없습니다. 마이크 연결 상태를 확인해주세요.";
+    case "network":
+      return "네트워크 오류로 음성인식에 실패했습니다.";
+    case "aborted":
+      return null; // 사용자가 직접 중지한 경우는 오류로 표시하지 않음
+    default:
+      return `음성인식 중 오류가 발생했습니다 (${code}). 아래에 직접 입력해주세요.`;
+  }
+}
+
 function SttBlock({ caseId, onRun, loading, autoTrigger }) {
   const [transcript, setTranscript] = useState("");
   const [listening, setListening] = useState(false);
   const [supported, setSupported] = useState(true);
+  const [errorMsg, setErrorMsg] = useState(null);
   const recognitionRef = useRef(null);
   const startedRef = useRef(false);
 
@@ -84,8 +104,12 @@ function SttBlock({ caseId, onRun, loading, autoTrigger }) {
       }
       setTranscript(combined);
     };
+    recognition.onstart = () => setErrorMsg(null);
     recognition.onend = () => setListening(false);
-    recognition.onerror = () => setListening(false);
+    recognition.onerror = (e) => {
+      setListening(false);
+      setErrorMsg(describeSttError(e.error));
+    };
     recognitionRef.current = recognition;
 
     if (autoTrigger && !startedRef.current) {
@@ -109,6 +133,7 @@ function SttBlock({ caseId, onRun, loading, autoTrigger }) {
       recognition.stop();
       setListening(false);
     } else {
+      setErrorMsg(null);
       try {
         recognition.start();
         setListening(true);
@@ -131,17 +156,26 @@ function SttBlock({ caseId, onRun, loading, autoTrigger }) {
 
       {!supported ? (
         <p className="hint">
-          이 브라우저는 음성인식을 지원하지 않습니다. 창구 대화 내용을 아래에 직접 입력해주세요.
+          이 브라우저는 음성인식을 지원하지 않습니다. 창구 대화 내용을 아래에 직접 입력해주세요. (Chrome
+          사용을 권장합니다)
         </p>
       ) : (
         <div className="stt-status">
-          {listening && <span className="rec-dot" />}
+          {listening && (
+            <span className="stt-wave">
+              {[0, 1, 2, 3].map((i) => (
+                <span key={i} className="wave-bar" style={{ animationDelay: `${i * 0.12}s` }} />
+              ))}
+            </span>
+          )}
           <span>{listening ? "음성 인식 중..." : "음성 인식 대기 중"}</span>
           <button className="link-btn" type="button" onClick={toggleListening}>
             {listening ? "중지" : "다시 시작"}
           </button>
         </div>
       )}
+
+      {errorMsg && <div className="stt-error">⚠ {errorMsg}</div>}
 
       {!autoTrigger && (
         <p className="hint">

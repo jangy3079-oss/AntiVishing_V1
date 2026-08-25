@@ -7,3 +7,5 @@ frontend/dist/
 .DS_Store
 **/.DS_Store
 *.log
+data/
+analysis/account_features.csv

@@ -1,0 +1,201 @@
+# AntiVishing API 명세서
+
+- Base URL(로컬): `http://localhost:8000`
+- 프론트엔드는 `/api` prefix로 프록시됨 (`vite.config.js`)
+- 모든 요청/응답은 JSON
+- 에러 응답 공통 포맷: `{ "detail": "에러 메시지" }` (400/404/500 공통, 500도 실제 예외 메시지를 그대로 노출하도록 커스텀 처리됨)
+
+## 공통 객체: Case
+
+거의 모든 엔드포인트가 아래 형태의 "케이스" 객체를 반환한다.
+
+```jsonc
+{
+  "id": "string",
+  "status": "TIER1_LOW_RISK_COMPLETED | TIER2_ESCALATED | AWAITING_YESNO | AWAITING_FREETEXT | STT_HARD_BLOCKED | FINAL_HIGH_RISK | FINAL_LOW_RISK | GOLDEN_TIME_FREEZE_REQUESTED",
+  "teller_id": "string",
+  "customer_id": "string",
+  "recipient_id": "string",
+  "amount": 25000000,
+  "already_sent": false,
+
+  "tier1": {
+    "is_trusted_recipient": false,
+    "is_first_time": true,
+    "amount_ratio_vs_max": 16.67,
+    "escalate_to_tier2": true,
+    "reasons": ["미등록 수취인 + 일정 금액 이상 첫 거래"]
+  },
+
+  "tier2": {
+    "recipient_label": "'안전계좌' 명의 계좌",
+    "account_number": "110-452-889931",
+    "auto_suspicion_score": 100,
+    "reasons": [
+      "입금 후 짧은 시간 내 92%가 인출됨(대포통장 의심 패턴)",
+      "최근 72시간 내 12명으로부터 입금",
+      "조기경보DB 등재 이력 있음",
+      "[통계적 이상탐지] 분산입금 건수이(가) 정상계좌 표본 대비 10.8표준편차 벗어남(알려진 패턴에 해당하지 않는 이례적 거래 흐름)"
+    ],
+    "high_auto_signal": true,
+    "account_features": {
+      "immediate_withdrawal_ratio": 0.92,
+      "distinct_senders_72h": 12,
+      "night_txn_ratio": 0.33,
+      "txn_frequency_per_day": 9.29
+    },
+    "anomaly_flag": true
+  }, // null이면 Tier1에서 저위험 종료된 케이스
+
+  "stt_result": {
+    "coaching_detected": true,
+    "confidence": 0.95,
+    "matched_scam_type": "검찰_금감원_사칭",
+    "reasoning": "string",
+    "raw": { /* LLM 원본 응답 */ }
+  }, // null 가능
+
+  "yesno_answers": {
+    "known_recipient": false,
+    "aware_of_true_purpose": false,
+    "clearly_normal": false
+  }, // null 가능
+
+  "freetext_analysis": {
+    "risk_level": "low | medium | high",
+    "matched_pattern_id": "PROSECUTOR_IMPERSONATION | FAMILY_EMERGENCY | FAKE_INVESTMENT | LEGITIMATE_MERCHANT_DISCOUNT | null",
+    "needs_followup": false,
+    "followup_question": "string | null",
+    "reasoning": "string"
+  }, // null 가능
+
+  "final_decision": {
+    "risk_level": "low | high",
+    "trigger": "stt_hard_block | freetext_high_risk | yesno_cleared | freetext_low_risk | fallback_auto_signal",
+    "explanation": "LLM이 생성한 3~4문장 자연어 설명"
+  }, // null 가능
+
+  "escalation_log": [{ "action": "confirm_with_sender | escalate_fsi | notify_guardian | freeze_request" }],
+
+  "conversation": [
+    { "question": "아는 사람/사업체인가요?", "answer": "예" }
+  ],
+
+  "next_action": "none_completed | stt_optional_or_yesno | yesno | freetext | high_risk_actions | null",
+  "pending_freetext_question": "string | null",
+  "freetext_round": 0,
+
+  "customer_name": "이순자",
+  "recipient_label": "'안전계좌' 명의 계좌"
+}
+```
+
+## 엔드포인트
+
+### GET /api/scenarios
+6개 고정 시나리오 목록 반환.
+
+**Response 200**
+```json
+[
+  {
+    "id": "S2_PROSECUTOR_SCAM",
+    "title": "명백한 보이스피싱 (검찰 사칭 · 안전계좌)",
+    "customer_id": "CUST003",
+    "recipient_id": "REC_SAFE_ACC",
+    "amount": 25000000,
+    "already_sent": false,
+    "expected": "TIER2 고위험 → STT 강한 코칭 감지 시 하드블록",
+    "sample_stt_transcript": "검찰청이라고 하면서 ..."
+  }
+]
+```
+
+### POST /api/cases/from-scenario/{scenario_id}
+고정 시나리오로 케이스를 즉시 생성(Tier1/Tier2까지 자동 실행됨).
+
+- `scenario_id`: `S1_NORMAL | S2_PROSECUTOR_SCAM | S3_FURNITURE_BENIGN | S4_MULE_SUSPECT | S5_FAMILY_IMPERSONATION | S6_ALREADY_SENT`
+- **Response 200**: Case 객체
+- **Response 404**: `{"detail": "존재하지 않는 시나리오입니다."}`
+
+### POST /api/cases
+임의 거래로 케이스 생성 (실서비스 연동 시 사용할 엔드포인트).
+
+**Request Body**
+```json
+{
+  "teller_id": "TELLER_001",
+  "customer_id": "CUST001",
+  "recipient_id": "REC_SAFE_ACC",
+  "amount": 5000000,
+  "already_sent": false
+}
+```
+**Response 200**: Case 객체
+**Response 400**: 알 수 없는 customer_id/recipient_id
+
+### GET /api/cases/{case_id}
+케이스 현재 상태 조회.
+
+**Response 200**: Case 객체
+**Response 404**: `{"detail": "케이스를 찾을 수 없습니다."}`
+
+### POST /api/cases/{case_id}/stt
+통화 중 채록(또는 음성인식 결과) 텍스트를 제출해 코칭 정황을 분석.
+
+**Request Body**
+```json
+{ "transcript": "검찰청이라면서 안전계좌로 옮기라고 계속 통화중이에요" }
+```
+**Response 200**: Case 객체 (status가 `STT_HARD_BLOCKED` 또는 `AWAITING_YESNO`로 전이)
+**Response 400**: `TIER2_ESCALATED` 상태가 아니면 거부
+
+### POST /api/cases/{case_id}/yesno
+Y/N 확인 질문 2건에 대한 답변 제출.
+
+**Request Body**
+```json
+{ "known_recipient": false, "aware_of_true_purpose": false }
+```
+**Response 200**: Case 객체 (`FINAL_LOW_RISK` 즉시 확정 또는 `AWAITING_FREETEXT`로 전이)
+**Response 400**: `TIER2_ESCALATED`/`AWAITING_YESNO` 상태가 아니면 거부
+
+### POST /api/cases/{case_id}/freetext
+자유텍스트 진술(또는 후속 질문 답변) 제출. 같은 엔드포인트를 후속질문에도 반복 사용한다.
+
+**Request Body**
+```json
+{ "text": "아는 사람이 소개해준 투자처인데 리딩방에서 알려준 계좌로 입금하면..." }
+```
+**Response 200**: Case 객체
+- `needs_followup=true`이고 `freetext_round < 3`이면 `pending_freetext_question`에 다음 질문이 담긴 채로 같은 상태 유지 (프론트가 재호출)
+- 아니면 `final_decision` 확정, status가 `FINAL_HIGH_RISK`/`FINAL_LOW_RISK`로 전이
+**Response 400**: `AWAITING_FREETEXT` 상태가 아니면 거부
+
+### POST /api/cases/{case_id}/escalate-action
+고위험 확정 케이스에 대한 조치 기록.
+
+**Request Body**
+```json
+{ "action": "freeze_request" }
+```
+- `action`: `confirm_with_sender | escalate_fsi | notify_guardian | freeze_request`
+- `already_sent=true`인 케이스에서 `freeze_request`를 보내면 status가 `GOLDEN_TIME_FREEZE_REQUESTED`로 전이
+
+**Response 200**: Case 객체
+**Response 400**: `FINAL_HIGH_RISK`/`STT_HARD_BLOCKED`/`GOLDEN_TIME_FREEZE_REQUESTED` 상태가 아니면 거부
+
+### GET /api/cases/{case_id}/log
+해당 케이스의 전체 이벤트 로그(내부 감사용).
+
+**Response 200**
+```json
+[
+  { "case_id": "string", "event": "tier2_escalated", "payload": { /* tier2 결과 dict */ } }
+]
+```
+
+### POST /api/reset
+인메모리 저장소 전체 초기화(로컬 데모/테스트용).
+
+**Response 200**: `{ "ok": true }`
