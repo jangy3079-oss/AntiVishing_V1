@@ -58,7 +58,19 @@
     "confidence": 0.95,
     "matched_scam_type": "검찰_금감원_사칭",
     "reasoning": "string",
-    "raw": { /* LLM 원본 응답 */ }
+    "raw": {
+      "source": "local_classifier | claude",
+      // source=local_classifier: 로컬 분류기가 보이스피싱 확률 5% 미만으로 강하게 판단해
+      //   Claude 호출을 생략한 경우. local_classifier 필드만 존재.
+      // source=claude: 그 외 모든 경우, Claude 최종 판단 결과 + local_classifier 참고용 포함.
+      "local_classifier": {
+        "available": true,
+        "label": "정상 | 보이스피싱",
+        "prob_phishing": 0.02,
+        "skip_llm": true
+      }
+      /* source=claude일 때는 LLM 원본 응답 필드도 함께 포함됨 */
+    }
   }, // null 가능
 
   "yesno_answers": {
@@ -144,7 +156,9 @@
 **Response 404**: `{"detail": "케이스를 찾을 수 없습니다."}`
 
 ### POST /api/cases/{case_id}/stt
-통화 중 채록(또는 음성인식 결과) 텍스트를 제출해 코칭 정황을 분석.
+통화 중 채록(또는 음성인식 결과) 텍스트를 제출해 코칭 정황을 분석. 로컬 분류기(v5.1)가 먼저
+"매우 명백한 정상 대화"로 강하게 판단하면 Claude 호출 없이 즉시 처리하고, 그 외에는 항상
+Claude(`analyze_stt_transcript`)로 넘겨 최종 판단·XAI 설명을 받는다(`ml/README.md` 참고).
 
 **Request Body**
 ```json
