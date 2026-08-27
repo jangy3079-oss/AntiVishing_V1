@@ -7,5 +7,6 @@ frontend/dist/
 .DS_Store
 **/.DS_Store
 *.log
-data/
+/data/
 analysis/account_features.csv
+/backend/app/models/coaching_classifier/

@@ -14,28 +14,34 @@
   "id": "string",
   "status": "TIER1_LOW_RISK_COMPLETED | TIER2_ESCALATED | AWAITING_YESNO | AWAITING_FREETEXT | STT_HARD_BLOCKED | FINAL_HIGH_RISK | FINAL_LOW_RISK | GOLDEN_TIME_FREEZE_REQUESTED",
   "teller_id": "string",
-  "customer_id": "string",
-  "recipient_id": "string",
+  "customer_name": "이순자",
+  "customer_account_number": "330-4455-667788",
+  "recipient_label": "'안전계좌' 명의 계좌",
+  "recipient_bank": "하나은행",
+  "recipient_account_number": "110-452-889931",
   "amount": 25000000,
   "already_sent": false,
 
   "tier1": {
     "is_trusted_recipient": false,
     "is_first_time": true,
-    "amount_ratio_vs_max": 16.67,
+    "is_elderly_customer": true,
+    "amount_ratio_vs_max": 125.0,
     "escalate_to_tier2": true,
-    "reasons": ["미등록 수취인 + 일정 금액 이상 첫 거래"]
+    "reasons": ["미등록 수취인 + 일정 금액 이상 첫 거래(고령 금융소비자 65세 이상 보호 기준 적용, 300,000원 이상)"]
   },
 
   "tier2": {
     "recipient_label": "'안전계좌' 명의 계좌",
+    "bank": "하나은행",
     "account_number": "110-452-889931",
     "auto_suspicion_score": 100,
     "reasons": [
       "입금 후 짧은 시간 내 92%가 인출됨(대포통장 의심 패턴)",
       "최근 72시간 내 12명으로부터 입금",
       "조기경보DB 등재 이력 있음",
-      "[통계적 이상탐지] 분산입금 건수이(가) 정상계좌 표본 대비 10.8표준편차 벗어남(알려진 패턴에 해당하지 않는 이례적 거래 흐름)"
+      "[통계적 이상탐지] 분산입금 건수이(가) 정상계좌 표본 대비 15표준편차 이상(현저히 이례적) 벗어남(알려진 패턴에 해당하지 않는 이례적 거래 흐름)",
+      "고령 금융소비자(만 80세) 대상 거래로 보수적 기준 적용"
     ],
     "high_auto_signal": true,
     "account_features": {
@@ -83,56 +89,53 @@
 
   "next_action": "none_completed | stt_optional_or_yesno | yesno | freetext | high_risk_actions | null",
   "pending_freetext_question": "string | null",
-  "freetext_round": 0,
-
-  "customer_name": "이순자",
-  "recipient_label": "'안전계좌' 명의 계좌"
+  "freetext_round": 0
 }
 ```
 
 ## 엔드포인트
 
-### GET /api/scenarios
-6개 고정 시나리오 목록 반환.
+### GET /api/customer-lookup
+고객 이름 + 본인 계좌번호로 고객 프로필을 조회한다. 신분증 스캐너가 없는 프로토타입에서 "신분증 스캔 후 정보 표출"을 재현하는 용도이며, 후보 목록을 미리 보여주지 않는다(일치하는 조합이 없으면 그냥 404).
+
+**Query Params**: `name` (string), `account_number` (string)
 
 **Response 200**
 ```json
-[
-  {
-    "id": "S2_PROSECUTOR_SCAM",
-    "title": "명백한 보이스피싱 (검찰 사칭 · 안전계좌)",
-    "customer_id": "CUST003",
-    "recipient_id": "REC_SAFE_ACC",
-    "amount": 25000000,
-    "already_sent": false,
-    "expected": "TIER2 고위험 → STT 강한 코칭 감지 시 하드블록",
-    "sample_stt_transcript": "검찰청이라고 하면서 ..."
-  }
-]
+{
+  "name": "이순자",
+  "account_number": "330-4455-667788",
+  "age": 80,
+  "gender": "여",
+  "balance": 26140500,
+  "recent_channel": "영업점 창구 방문 (본인)",
+  "notable_activity": "2일 전 비대면(스마트폰 앱)으로 2,500만원 신용대출 실행 이력 있음. ...",
+  "avg_monthly_tx_count": 0.1,
+  "avg_amount": 0,
+  "max_amount_ever": 200000,
+  "trusted_recipient_account_numbers": []
+}
 ```
-
-### POST /api/cases/from-scenario/{scenario_id}
-고정 시나리오로 케이스를 즉시 생성(Tier1/Tier2까지 자동 실행됨).
-
-- `scenario_id`: `S1_NORMAL | S2_PROSECUTOR_SCAM | S3_FURNITURE_BENIGN | S4_MULE_SUSPECT | S5_FAMILY_IMPERSONATION | S6_ALREADY_SENT`
-- **Response 200**: Case 객체
-- **Response 404**: `{"detail": "존재하지 않는 시나리오입니다."}`
+**Response 404**: `{"detail": "일치하는 고객 정보를 찾을 수 없습니다. 이름과 계좌번호를 다시 확인해주세요."}`
 
 ### POST /api/cases
-임의 거래로 케이스 생성 (실서비스 연동 시 사용할 엔드포인트).
+거래 접수. 고객·수취계좌를 이름/계좌번호로 조회해 매칭되면 즉시 Tier1/Tier2까지 자동 실행한다. 시나리오 카드/ID 선택 방식은 폐지되었다.
 
 **Request Body**
 ```json
 {
   "teller_id": "TELLER_001",
-  "customer_id": "CUST001",
-  "recipient_id": "REC_SAFE_ACC",
-  "amount": 5000000,
+  "customer_name": "이순자",
+  "customer_account_number": "330-4455-667788",
+  "recipient_bank": "하나은행",
+  "recipient_account_number": "110-452-889931",
+  "amount": 25000000,
   "already_sent": false
 }
 ```
-**Response 200**: Case 객체
-**Response 400**: 알 수 없는 customer_id/recipient_id
+- `recipient_bank`: 창구직원이 입력한 은행명(표시용 참고 정보). 매칭은 `recipient_account_number`만으로 이루어진다.
+- **Response 200**: Case 객체
+- **Response 404**: 고객 불일치 시 `{"detail": "일치하는 고객 정보를 찾을 수 없습니다. 이름과 계좌번호를 다시 확인해주세요."}` / 수취계좌 불일치 시 `{"detail": "조회할 수 없는 수취 계좌입니다."}`
 
 ### GET /api/cases/{case_id}
 케이스 현재 상태 조회.
@@ -199,3 +202,18 @@ Y/N 확인 질문 2건에 대한 답변 제출.
 인메모리 저장소 전체 초기화(로컬 데모/테스트용).
 
 **Response 200**: `{ "ok": true }`
+
+## 부록: 테스트 계정 안내 (평가자/시연자용 — 화면에는 절대 노출되지 않음)
+
+프로토타입 화면에는 아래 목록이 전혀 표시되지 않는다(실제 창구처럼, 등록된 조합인지 아닌지만 알 수 있음). 시연·평가 시 아래 조합을 그대로 입력하면 의도된 6가지 케이스가 재현된다. 데이터 정의는 `backend/app/data/accounts.py`.
+
+| 성격 | 고객 이름 / 본인 계좌번호 | 수취 은행 / 계좌번호 | 권장 송금액 | 기송금 |
+|---|---|---|---|---|
+| 정상 송금(신뢰 수취인) | 김영희 / 110-2233-445566 | 국민은행 / 352-1044-782211 | 400,000 | 아니오 |
+| 검찰 사칭·안전계좌 | 이순자 / 330-4455-667788 | 하나은행 / 110-452-889931 | 25,000,000 | 아니오 |
+| 가구점 할인(선의) | 박철수 / 220-3344-556677 | 신한은행 / 301-882-744102 | 800,000 | 아니오 |
+| 대포통장 의심(투자 사기) | 정민호 / 440-5566-778899 | 우리은행 / 643-210-099871 | 9,000,000 | 아니오 |
+| 자녀 사칭(고령층 첫거래) | 최영자 / 550-6677-889900 | 카카오뱅크 / 902-114-556602 | 3,000,000 | 아니오 |
+| 이미 송금 완료(골든타임) | 김영희 / 110-2233-445566 | 하나은행 / 110-452-889931 | 18,000,000 | 예 |
+
+이름/계좌번호 조합이 위 목록과 정확히 일치하지 않으면 `/api/customer-lookup`, `/api/cases` 모두 404로 응답한다(등록되지 않은 고객·계좌를 임의로 입력해 "정상적으로 조회되지 않는" 상태를 보여주는 것도 유효한 데모 시나리오다).

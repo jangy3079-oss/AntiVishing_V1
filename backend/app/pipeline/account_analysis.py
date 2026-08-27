@@ -14,14 +14,33 @@ from datetime import datetime, timedelta
 
 _DATETIME_FMT = "%Y-%m-%d %H:%M:%S"
 
-# 정상계좌 표본 평균/표준편차. 실제 서비스라면 은행 전체 계좌 통계로 대체해야 하는
-# 프로토타입 단계의 가정치이며, 도메인 지식(일반적인 개인 계좌 거래 패턴)에 근거해 설정했다.
+# 정상계좌 표본 평균/표준편차.
+# distinct_senders_72h는 AI-Hub 실제 금융거래 데이터(analysis/account_cluster.py)를 이 함수와
+# "동일한 정의"(최근 거래시각 기준 72시간 롤링 윈도우)로 재계산해 얻은 정상계좌 실측치다.
+# 주의: analysis/comparison_figures.py의 "분산입금 상대방 수 약 5배" 결과는 계좌가 관측된 전체 기간의
+# 누적 상대방 수를 쓴 것이라 정의가 다르다. 이 72시간 윈도우 버전으로 다시 계산해보면 정상(0.53)과
+# 이상연루(0.61) 계좌의 차이가 크지 않아 판별력은 약하지만, 그래도 이 함수의 정의와 정확히 일치하는
+# 실측치이므로 임의의 가정치보다는 이 값을 쓴다.
+# txn_frequency_per_day는 실측 데이터에서 이상연루 계좌가 정상 대비 약 4배 높다는 유효한 결과를
+# 얻었지만(comparison_figures.py fig1), 그 절대값(정상 평균 0.017/일)은 실제 계좌가 수개월 단위로
+# 관측된 데이터라서 나온 것이다. 반면 우리 데모 CSV는 며칠짜리 짧은 구간만 담고 있어 정상 계좌도
+# 하루 1건 안팎(수십 배 더 높은 값)으로 나온다. 이 절대값을 그대로 baseline에 쓰면 정상 데모 계좌
+# (가구점 등)까지 통계적 이상탐지에 오탐지되는 것을 실제로 확인했다. 그래서 이 지표는 "관측 기간이
+# 짧은 프로토타입 데모"에 맞춘 가정치를 유지하고, 실측에서 확인한 "약 4배 차이"라는 정성적 결론만
+# 참고한다(distinct_senders_72h처럼 실측 절대값을 그대로 옮기지 않음).
+# immediate_withdrawal_ratio / night_txn_ratio는 실측 데이터에서 정상계좌 평균이 거의 0(노이즈 수준,
+# std도 극히 작음)이라, 마찬가지로 실측 절대값을 쓰지 않고 프로토타입 가정치(도메인 지식 기반)를 유지한다.
 _NORMAL_BASELINE = {
-    "immediate_withdrawal_ratio": {"mean": 0.15, "std": 0.12},
-    "distinct_senders_72h": {"mean": 1.2, "std": 1.0},
-    "night_txn_ratio": {"mean": 0.05, "std": 0.05},
-    "txn_frequency_per_day": {"mean": 2.0, "std": 1.5},
+    "immediate_withdrawal_ratio": {"mean": 0.15, "std": 0.12},  # 프로토타입 가정치 (실측 미검증)
+    "distinct_senders_72h": {"mean": 0.53, "std": 0.54},  # AI-Hub 실측(72h 윈도우 재계산)
+    "night_txn_ratio": {"mean": 0.05, "std": 0.05},  # 프로토타입 가정치 (실측 미검증)
+    "txn_frequency_per_day": {"mean": 2.0, "std": 1.5},  # 프로토타입 가정치 (관측기간 스케일 불일치로 실측값 미적용)
 }
+
+# z-score 표시용 상한. 위 실측 baseline 중 std가 매우 작은 지표(txn_frequency_per_day)는
+# 관측 기간이 짧은 데모 CSV에 적용하면 수백 표준편차처럼 비현실적인 숫자가 나올 수 있어,
+# 판정 로직(>=3.0)은 원래 z-score 그대로 쓰되 "표시 문구"만 이 값으로 상한을 둔다.
+_Z_DISPLAY_CAP = 15.0
 
 _FEATURE_LABELS = {
     "immediate_withdrawal_ratio": "즉시인출비율",
@@ -129,8 +148,12 @@ def analyze_account(csv_path: str) -> dict:
     anomaly_flag = max_z >= 3.0
     anomaly_reasons = []
     if anomaly_flag:
+        if max_z > _Z_DISPLAY_CAP:
+            deviation_text = f"{_Z_DISPLAY_CAP:.0f}표준편차 이상(현저히 이례적)"
+        else:
+            deviation_text = f"{max_z:.1f}표준편차"
         anomaly_reasons.append(
-            f"{_FEATURE_LABELS[max_key]}이(가) 정상계좌 표본 대비 {max_z:.1f}표준편차 벗어남"
+            f"{_FEATURE_LABELS[max_key]}이(가) 정상계좌 표본 대비 {deviation_text} 벗어남"
             "(알려진 패턴에 해당하지 않는 이례적 거래 흐름)"
         )
 

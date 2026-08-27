@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>AntiVishing DB ERD (3NF, MySQL)</title>
+</head>
+<body style="margin:0; background:#f7f8fa;">
+<div id="erd-root" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f7f8fa; padding: 16px; border-radius: 8px;">
+  <div style="margin-bottom: 10px; font-size: 13px; color: #555;">
+    <b>AntiVishing 실서비스 확장 ERD</b> — 테이블을 드래그해서 배치를 조정할 수 있습니다. 실선=명시적 FK. 원본 DDL: schema.sql
+  </div>
+  <div id="erd-container" style="position: relative; width: 100%; height: 1500px; overflow: auto; background: white; border: 1px solid #e0e0e0; border-radius: 6px;">
+    <svg id="relations" style="position: absolute; top:0; left:0; width: 1700px; height: 1500px; pointer-events: none;">
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 Z" fill="#8a8a8a" />
+        </marker>
+      </defs>
+    </svg>
+    <div id="tables" style="position: relative; width: 1700px; height: 1500px;"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const colors = ["#4F86C6", "#E8845A", "#5BAD72", "#9B72CF", "#E8C55A", "#5AB8C4"];
+
+  const tables = [
+    { name: "customers", cols: [
+        ["customer_id","BIGINT","PK"], ["name","VARCHAR",""], ["account_number","VARCHAR","UQ"],
+        ["age","TINYINT",""], ["gender","ENUM",""], ["balance","BIGINT",""],
+        ["recent_channel","VARCHAR",""], ["notable_activity","TEXT",""],
+        ["avg_monthly_tx_count","DECIMAL",""], ["avg_amount","BIGINT",""], ["max_amount_ever","BIGINT",""]
+    ]},
+    { name: "recipient_accounts", cols: [
+        ["recipient_id","BIGINT","PK"], ["label","VARCHAR",""], ["bank","VARCHAR",""],
+        ["account_number","VARCHAR","UQ"], ["early_warning_db_hit","BOOLEAN",""], ["biz_reg_verified","BOOLEAN",""]
+    ]},
+    { name: "customer_trusted_recipients", cols: [
+        ["customer_id","BIGINT","PK,FK"], ["recipient_id","BIGINT","PK,FK"], ["registered_at","DATETIME",""]
+    ]},
+    { name: "account_transactions", cols: [
+        ["transaction_id","BIGINT","PK"], ["recipient_id","BIGINT","FK"], ["txn_datetime","DATETIME",""],
+        ["txn_type","ENUM",""], ["amount","BIGINT",""], ["balance_after","BIGINT",""], ["counterparty","VARCHAR",""]
+    ]},
+    { name: "known_scam_patterns", cols: [
+        ["pattern_id","VARCHAR","PK"], ["summary","VARCHAR",""]
+    ]},
+    { name: "known_scam_pattern_signals", cols: [
+        ["pattern_id","VARCHAR","PK,FK"], ["signal_keyword","VARCHAR","PK"]
+    ]},
+    { name: "cases", cols: [
+        ["case_id","CHAR(8)","PK"], ["teller_id","VARCHAR",""], ["customer_id","BIGINT","FK"],
+        ["recipient_id","BIGINT","FK"], ["amount","BIGINT",""], ["already_sent","BOOLEAN",""],
+        ["status","ENUM",""], ["next_action","VARCHAR",""], ["freetext_round","TINYINT",""]
+    ]},
+    { name: "tier1_results", cols: [
+        ["case_id","CHAR(8)","PK,FK"], ["is_trusted_recipient","BOOLEAN",""], ["is_first_time","BOOLEAN",""],
+        ["is_elderly_customer","BOOLEAN",""], ["amount_ratio_vs_max","DECIMAL",""], ["escalate_to_tier2","BOOLEAN",""]
+    ]},
+    { name: "tier2_analyses", cols: [
+        ["case_id","CHAR(8)","PK,FK"], ["auto_suspicion_score","TINYINT",""], ["high_auto_signal","BOOLEAN",""],
+        ["anomaly_flag","BOOLEAN",""], ["immediate_withdrawal_ratio","DECIMAL",""],
+        ["distinct_senders_72h","SMALLINT",""], ["night_txn_ratio","DECIMAL",""], ["txn_frequency_per_day","DECIMAL",""]
+    ]},
+    { name: "case_reasons", cols: [
+        ["reason_id","BIGINT","PK"], ["case_id","CHAR(8)","FK"], ["source","ENUM",""],
+        ["seq","TINYINT",""], ["reason_text","VARCHAR",""]
+    ]},
+    { name: "stt_results", cols: [
+        ["case_id","CHAR(8)","PK,FK"], ["coaching_detected","BOOLEAN",""], ["confidence","DECIMAL",""],
+        ["matched_scam_type","VARCHAR",""], ["reasoning","TEXT",""], ["transcript","TEXT",""]
+    ]},
+    { name: "yesno_answers", cols: [
+        ["case_id","CHAR(8)","PK,FK"], ["known_recipient","BOOLEAN",""],
+        ["aware_of_true_purpose","BOOLEAN",""], ["clearly_normal","BOOLEAN",""]
+    ]},
+    { name: "freetext_analyses", cols: [
+        ["freetext_id","BIGINT","PK"], ["case_id","CHAR(8)","FK"], ["round_no","TINYINT",""],
+        ["customer_statement","TEXT",""], ["risk_level","ENUM",""], ["matched_pattern_id","VARCHAR","FK"],
+        ["needs_followup","BOOLEAN",""], ["followup_question","TEXT",""]
+    ]},
+    { name: "case_conversation", cols: [
+        ["conversation_id","BIGINT","PK"], ["case_id","CHAR(8)","FK"], ["seq","SMALLINT",""],
+        ["question","VARCHAR",""], ["answer","TEXT",""]
+    ]},
+    { name: "final_decisions", cols: [
+        ["case_id","CHAR(8)","PK,FK"], ["risk_level","ENUM",""], ["trigger_reason","VARCHAR",""], ["explanation","TEXT",""]
+    ]},
+    { name: "escalation_actions", cols: [
+        ["escalation_id","BIGINT","PK"], ["case_id","CHAR(8)","FK"], ["action","ENUM",""]
+    ]}
+  ];
+
+  const relations = [
+    ["customer_trusted_recipients","customers"], ["customer_trusted_recipients","recipient_accounts"],
+    ["account_transactions","recipient_accounts"],
+    ["known_scam_pattern_signals","known_scam_patterns"],
+    ["cases","customers"], ["cases","recipient_accounts"],
+    ["tier1_results","cases"], ["tier2_analyses","cases"], ["case_reasons","cases"],
+    ["stt_results","cases"], ["yesno_answers","cases"],
+    ["freetext_analyses","cases"], ["freetext_analyses","known_scam_patterns"],
+    ["case_conversation","cases"], ["final_decisions","cases"], ["escalation_actions","cases"]
+  ];
+
+  const container = document.getElementById("tables");
+  const svg = document.getElementById("relations");
+  const colWidth = 400, colGap = 30;
+  const perRow = 4;
+  const nodes = {};
+
+  tables.forEach((t, i) => {
+    const col = i % perRow, row = Math.floor(i / perRow);
+    const x = 20 + col * (colWidth + colGap);
+    const y = 20 + row * 260;
+
+    const div = document.createElement("div");
+    div.style.cssText = `position:absolute; left:${x}px; top:${y}px; width:${colWidth}px; border:1px solid #ccc; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,0.1); background:white; cursor:move; user-select:none; z-index:2;`;
+    const headerColor = colors[i % colors.length];
+    let html = `<div class="erd-header" style="background:${headerColor}; color:white; font-weight:bold; padding:6px 10px; border-radius:6px 6px 0 0; font-size:13px;">${t.name}</div>`;
+    html += `<div style="padding:4px 0;">`;
+    t.cols.forEach(c => {
+      const icon = c[2].includes("PK") ? "🔑" : (c[2].includes("FK") ? "🔗" : "");
+      const weight = c[2].includes("PK") ? "font-weight:bold;" : "";
+      const underline = c[2].includes("UQ") ? "text-decoration:underline;" : "";
+      html += `<div style="display:flex; justify-content:space-between; padding:2px 10px; font-size:11.5px; ${weight}${underline}">
+        <span>${icon} ${c[0]}</span><span style="color:#888;">${c[1]}</span>
+      </div>`;
+    });
+    html += `</div>`;
+    div.innerHTML = html;
+    container.appendChild(div);
+    nodes[t.name] = { el: div, x, y, w: colWidth, h: 30 + t.cols.length * 20 };
+    div.style.height = nodes[t.name].h + "px";
+  });
+
+  function drawLines() {
+    let svgHtml = svg.querySelector("defs").outerHTML;
+    relations.forEach(([from, to]) => {
+      const a = nodes[from], b = nodes[to];
+      if (!a || !b) return;
+      const ax = a.x + a.w, ay = a.y + a.h / 2;
+      const bx = b.x, by = b.y + b.h / 2;
+      const midx = (ax + bx) / 2;
+      svgHtml += `<path d="M${ax},${ay} C${midx},${ay} ${midx},${by} ${bx},${by}" stroke="#9aa0a6" stroke-width="1.5" fill="none" marker-end="url(#arrow)" />`;
+    });
+    svg.innerHTML = svgHtml;
+  }
+  drawLines();
+
+  let dragging = null, offX = 0, offY = 0;
+  Object.keys(nodes).forEach(name => {
+    const n = nodes[name];
+    n.el.addEventListener("mousedown", (e) => {
+      dragging = name;
+      offX = e.clientX - n.x;
+      offY = e.clientY - n.y;
+      n.el.style.zIndex = 10;
+    });
+  });
+  document.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    const n = nodes[dragging];
+    n.x = e.clientX - offX;
+    n.y = e.clientY - offY;
+    n.el.style.left = n.x + "px";
+    n.el.style.top = n.y + "px";
+    drawLines();
+  });
+  document.addEventListener("mouseup", () => { dragging = null; });
+})();
+</script>
+</body>
+</html>

@@ -16,8 +16,10 @@ class CaseStatus(str, Enum):
 
 class TransactionCreate(BaseModel):
     teller_id: str
-    customer_id: str
-    recipient_id: str
+    customer_name: str
+    customer_account_number: str
+    recipient_account_number: str
+    recipient_bank: Optional[str] = None  # 창구직원이 입력한 은행명(표시용, 매칭에는 계좌번호만 사용)
     amount: int
     already_sent: bool = False
 
@@ -43,8 +45,11 @@ class Case(BaseModel):
     id: str
     status: CaseStatus
     teller_id: str
-    customer_id: str
-    recipient_id: str
+    customer_name: str
+    customer_account_number: str
+    recipient_label: str
+    recipient_bank: Optional[str] = None
+    recipient_account_number: str
     amount: int
     already_sent: bool
 

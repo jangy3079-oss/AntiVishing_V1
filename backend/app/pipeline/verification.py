@@ -1,6 +1,6 @@
 """저마찰 확인 절차: ① 예/아니오 1~2문항 -> ② 자유텍스트(LLM RAG 패턴대조)."""
 from app import llm_client
-from app.data.scenarios import KNOWN_SCAM_PATTERNS
+from app.data.accounts import KNOWN_SCAM_PATTERNS
 
 
 def evaluate_yesno(known_recipient: bool, aware_of_true_purpose: bool) -> dict:

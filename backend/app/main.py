@@ -6,7 +6,7 @@ from app import store
 from app.models import (
     TransactionCreate, SttSubmit, YesNoAnswers, FreeTextSubmit, EscalationAction,
 )
-from app.data.scenarios import SCENARIOS, get_scenario, CUSTOMERS, RECIPIENTS
+from app.data import accounts
 from app.pipeline import tier1, tier2, stt_analysis, verification, decision
 
 app = FastAPI(title="AntiVishing API")
@@ -26,32 +26,13 @@ async def show_real_error(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 
-def _customer_recipient_view(case: dict) -> dict:
-    return {
-        **case,
-        "customer_name": CUSTOMERS[case["customer_id"]]["name"],
-        "recipient_label": RECIPIENTS[case["recipient_id"]]["label"],
-    }
-
-
-@app.get("/api/scenarios")
-def list_scenarios():
-    return SCENARIOS
-
-
-@app.post("/api/cases/from-scenario/{scenario_id}")
-def create_case_from_scenario(scenario_id: str):
-    scenario = get_scenario(scenario_id)
-    if not scenario:
-        raise HTTPException(404, "존재하지 않는 시나리오입니다.")
-    payload = TransactionCreate(
-        teller_id="TELLER_DEMO",
-        customer_id=scenario["customer_id"],
-        recipient_id=scenario["recipient_id"],
-        amount=scenario["amount"],
-        already_sent=scenario["already_sent"],
-    )
-    return _start_case(payload)
+@app.get("/api/customer-lookup")
+def lookup_customer(name: str, account_number: str):
+    """신분증 스캐너 대신, 고객 이름+본인 계좌번호로 조회한다(창구 UI에는 후보 목록을 노출하지 않는다)."""
+    customer = accounts.find_customer(name, account_number)
+    if not customer:
+        raise HTTPException(404, "일치하는 고객 정보를 찾을 수 없습니다. 이름과 계좌번호를 다시 확인해주세요.")
+    return customer
 
 
 @app.post("/api/cases")
@@ -60,17 +41,23 @@ def create_case(payload: TransactionCreate):
 
 
 def _start_case(payload: TransactionCreate):
-    if payload.customer_id not in CUSTOMERS:
-        raise HTTPException(400, f"알 수 없는 customer_id: {payload.customer_id}")
-    if payload.recipient_id not in RECIPIENTS:
-        raise HTTPException(400, f"알 수 없는 recipient_id: {payload.recipient_id}")
+    customer = accounts.find_customer(payload.customer_name, payload.customer_account_number)
+    if not customer:
+        raise HTTPException(404, "일치하는 고객 정보를 찾을 수 없습니다. 이름과 계좌번호를 다시 확인해주세요.")
 
-    t1 = tier1.run_tier1(payload.customer_id, payload.recipient_id, payload.amount)
+    recipient = accounts.find_recipient(payload.recipient_account_number)
+    if not recipient:
+        raise HTTPException(404, "조회할 수 없는 수취 계좌입니다.")
+
+    t1 = tier1.run_tier1(customer, recipient["account_number"], payload.amount)
 
     case = store.create_case({
         "teller_id": payload.teller_id,
-        "customer_id": payload.customer_id,
-        "recipient_id": payload.recipient_id,
+        "customer_name": customer["name"],
+        "customer_account_number": customer["account_number"],
+        "recipient_label": recipient["label"],
+        "recipient_bank": payload.recipient_bank or recipient["bank"],
+        "recipient_account_number": recipient["account_number"],
         "amount": payload.amount,
         "already_sent": payload.already_sent,
         "tier1": t1,
@@ -88,15 +75,15 @@ def _start_case(payload: TransactionCreate):
     if not t1["escalate_to_tier2"]:
         store.update_case(case["id"], status="TIER1_LOW_RISK_COMPLETED", next_action="none_completed")
         store.log_event(case["id"], "tier1_low_risk", t1)
-        return _customer_recipient_view(store.get_case(case["id"]))
+        return store.get_case(case["id"])
 
-    t2 = tier2.run_tier2(payload.recipient_id)
+    t2 = tier2.run_tier2(recipient, customer)
     store.update_case(
         case["id"], tier2=t2, status="TIER2_ESCALATED",
         next_action="stt_optional_or_yesno",
     )
     store.log_event(case["id"], "tier2_escalated", t2)
-    return _customer_recipient_view(store.get_case(case["id"]))
+    return store.get_case(case["id"])
 
 
 @app.get("/api/cases/{case_id}")
@@ -104,7 +91,7 @@ def get_case(case_id: str):
     case = store.get_case(case_id)
     if not case:
         raise HTTPException(404, "케이스를 찾을 수 없습니다.")
-    return _customer_recipient_view(case)
+    return case
 
 
 @app.post("/api/cases/{case_id}/stt")
@@ -127,7 +114,7 @@ def submit_stt(case_id: str, payload: SttSubmit):
     else:
         store.update_case(case_id, status="AWAITING_YESNO", next_action="yesno")
 
-    return _customer_recipient_view(store.get_case(case_id))
+    return store.get_case(case_id)
 
 
 @app.post("/api/cases/{case_id}/yesno")
@@ -153,7 +140,7 @@ def submit_yesno(case_id: str, payload: YesNoAnswers):
     else:
         store.update_case(case_id, status="AWAITING_FREETEXT", next_action="freetext")
 
-    return _customer_recipient_view(store.get_case(case_id))
+    return store.get_case(case_id)
 
 
 @app.post("/api/cases/{case_id}/freetext")
@@ -178,7 +165,7 @@ def submit_freetext(case_id: str, payload: FreeTextSubmit):
         store.update_case(
             case_id, next_action="freetext", pending_freetext_question=result["followup_question"]
         )  # 후속질문도 같은 엔드포인트로 재제출
-        return _customer_recipient_view(store.get_case(case_id))
+        return store.get_case(case_id)
 
     final = decision.make_final_decision(store.get_case(case_id))
     high_risk = final["risk_level"] == "high"
@@ -188,7 +175,7 @@ def submit_freetext(case_id: str, payload: FreeTextSubmit):
         next_action="high_risk_actions" if high_risk else "none_completed",
     )
     store.log_event(case_id, "final_decision", final)
-    return _customer_recipient_view(store.get_case(case_id))
+    return store.get_case(case_id)
 
 
 @app.post("/api/cases/{case_id}/escalate-action")
@@ -206,7 +193,7 @@ def submit_escalation_action(case_id: str, payload: EscalationAction):
     if payload.action == "freeze_request" and case.get("already_sent"):
         store.update_case(case_id, status="GOLDEN_TIME_FREEZE_REQUESTED")
 
-    return _customer_recipient_view(store.get_case(case_id))
+    return store.get_case(case_id)
 
 
 @app.get("/api/cases/{case_id}/log")
