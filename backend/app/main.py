@@ -1,8 +1,8 @@
 import os
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app import store
 from app.models import (
@@ -14,12 +14,9 @@ from app.pipeline import tier1, tier2, stt_analysis, verification, decision, acc
 
 app = FastAPI(title="AntiVishing API")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS는 두지 않는다: 개발 중엔 vite dev-proxy(server.proxy, "/api" → 8000)가 브라우저 기준
+# 같은 출처로 보이게 해주고, 배포 시에도 아래처럼 FastAPI가 프론트 빌드물을 같은 서비스/같은
+# 오리진에서 정적으로 서빙하므로 어느 쪽도 교차 출처 요청이 발생하지 않는다.
 
 
 @app.exception_handler(Exception)
@@ -274,3 +271,11 @@ def get_case_log(case_id: str):
 def reset_all():
     store.reset()
     return {"ok": True}
+
+
+# 프론트(React) 빌드 결과물 정적 서빙 — 반드시 모든 /api/* 라우트 뒤에 와야 한다.
+# 이 앱은 react-router 등 클라이언트 라우팅이 없는 단일 화면(index.html) 구조라
+# 별도 SPA fallback 없이 StaticFiles(html=True)만으로 충분하다("/" 요청 시 index.html 자동 서빙).
+_FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "static")
+if os.path.isdir(_FRONTEND_DIST):
+    app.mount("/", StaticFiles(directory=_FRONTEND_DIST, html=True), name="frontend")

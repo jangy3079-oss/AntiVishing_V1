@@ -1,0 +1,33 @@
+# Fly.io/Docker 빌드 컨텍스트 전용 (.gitignore와는 별개 — git에 안 올라간 파일이라도
+# 여기서 제외하지 않으면 flyctl deploy가 로컬 디스크에서 그대로 읽어 이미지에 포함시킨다).
+# 특히 backend/app/models/coaching_classifier/(로컬 STT 분류기, ~261MB)와 analysis/
+# account_features.csv(계좌 위치 분석용)는 git에는 없지만 반드시 이미지에는 포함되어야
+# 하므로 아래 목록에 넣지 않는다.
+
+.git
+.gitignore
+
+# 루트 data/ 는 원본 학습용 대용량 데이터셋(약 22GB)이며 앱 실행 시 전혀 참조되지 않는다.
+data/
+
+# 문서/스크린샷 등 배포에 불필요한 것들
+docs/
+ml/
+*.md
+*.docx
+*.log
+.DS_Store
+**/.DS_Store
+
+# 비밀값 — Fly.io에는 flyctl secrets set으로 별도 주입한다.
+backend/.env
+**/.env
+
+# 프론트엔드: 컨테이너 안에서 새로 빌드하므로 로컬 산출물/의존성은 불필요
+frontend/node_modules
+frontend/dist
+
+# 파이썬 캐시류
+**/__pycache__
+**/*.pyc
+backend/.venv

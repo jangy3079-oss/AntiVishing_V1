@@ -1,0 +1,17 @@
+# flyctl launch로 앱을 처음 만들 때 이름이 이미 사용 중이면 CLI가 다른 이름을 물어본다.
+# 그때 아래 app 값도 같이 맞춰 바꾸면 된다.
+app = "antivishing-v1"
+primary_region = "nrt"  # Fly.io에는 서울(icn) 리전이 없어 가장 가까운 도쿄를 사용
+
+[build]
+
+[http_service]
+  internal_port = 8000  # Dockerfile의 uvicorn 포트와 일치해야 함
+  force_https = true
+  auto_stop_machines = "stop"    # 접속이 없으면 머신을 내려 과금을 줄인다(제출용 데모라 상시구동 불필요)
+  auto_start_machines = true     # 다음 요청이 오면 자동으로 다시 켠다
+  min_machines_running = 0       # 평소엔 0대 → 유휴 시간엔 거의 과금 없음
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"  # STT 로컬 분류기(torch+transformers, 모델 261MB) 로딩 여유를 위해 512mb보다 넉넉히
