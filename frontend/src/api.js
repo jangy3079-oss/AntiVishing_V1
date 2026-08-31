@@ -51,5 +51,6 @@ export const api = {
     }).then(handle),
   getLog: (caseId) => fetch(`${BASE}/cases/${caseId}/log`).then(handle),
   getAccountFigures: (caseId) => fetch(`${BASE}/cases/${caseId}/account-figures`).then(handle),
+  getAccountTransactions: (caseId) => fetch(`${BASE}/cases/${caseId}/account-transactions`).then(handle),
   reset: () => fetch(`${BASE}/reset`, { method: "POST" }).then(handle),
 };

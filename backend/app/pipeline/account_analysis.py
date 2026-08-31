@@ -64,6 +64,23 @@ def _load_transactions(csv_path: str) -> list[dict]:
     return rows
 
 
+def load_transactions_for_display(csv_path: str) -> list[dict]:
+    """원본 CSV의 모든 컬럼(거래후잔액 포함)을 그대로 프론트에 보여주기 위한 함수.
+    _load_transactions()는 특징치 계산에 쓰는 컬럼만 남기고 거래후잔액을 버리므로 별도로 둔다."""
+    rows = []
+    with open(csv_path, encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            rows.append({
+                "datetime": row["거래일시"],
+                "type": row["구분"],
+                "amount": int(row["금액"]),
+                "balance_after": int(row["거래후잔액"]),
+                "counterparty": row.get("상대방", ""),
+            })
+    rows.sort(key=lambda r: r["datetime"])
+    return rows
+
+
 def _immediate_withdrawal_ratio(txns: list[dict], window_hours: int = 6) -> float:
     """입금 각 건에 대해, 이후 window_hours 이내에 얼마나 인출되었는지의 입금액 가중평균."""
     inflows = [t for t in txns if t["type"] == "입금"]

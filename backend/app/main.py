@@ -10,7 +10,7 @@ from app.models import (
 )
 from app import llm_client
 from app.data import accounts
-from app.pipeline import tier1, tier2, stt_analysis, verification, decision, account_figures
+from app.pipeline import tier1, tier2, stt_analysis, verification, decision, account_figures, account_analysis
 
 app = FastAPI(title="AntiVishing API")
 
@@ -260,6 +260,28 @@ def get_account_figures(case_id: str):
     result = {"figures": figures, "explanation": explanation, "position": position}
     store.update_case(case_id, account_figures=result)
     return result
+
+
+@app.get("/api/cases/{case_id}/account-transactions")
+def get_account_transactions(case_id: str):
+    """수취계좌의 원본 입출금 내역(거래일시/구분/금액/거래후잔액/상대방)을 그대로 반환한다.
+    그림·통계 요약(account-figures)과 달리 가공 없는 raw 거래 목록이다. 설명(왜 의심스러운지)은
+    이미 계산되어 있는 tier2.reasons를 프론트에서 그대로 재사용하므로 여기서는 만들지 않는다."""
+    case = store.get_case(case_id)
+    if not case:
+        raise HTTPException(404, "케이스를 찾을 수 없습니다.")
+    if not case.get("tier2"):
+        raise HTTPException(400, "Tier2 심층 조사가 실행된 케이스에서만 거래내역을 볼 수 있습니다.")
+
+    recipient = accounts.find_recipient(case["recipient_account_number"])
+    if not recipient:
+        raise HTTPException(404, "수취계좌 정보를 더 이상 찾을 수 없습니다(테스트 계좌 재생성으로 교체되었을 수 있음).")
+
+    csv_path = os.path.join(
+        os.path.dirname(__file__), "data", "account_transactions", recipient["transactions_csv"]
+    )
+    transactions = account_analysis.load_transactions_for_display(csv_path)
+    return {"transactions": transactions}
 
 
 @app.get("/api/cases/{case_id}/log")

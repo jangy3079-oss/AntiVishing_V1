@@ -1,5 +1,6 @@
 import PipelineDiagram from "./PipelineDiagram";
 import AccountFigures from "./AccountFigures";
+import TransactionHistory from "./TransactionHistory";
 
 export default function PipelineView({ case: c, open, onToggle, primaryLabel, onPrimary }) {
   if (!c) return null;
@@ -26,6 +27,9 @@ export default function PipelineView({ case: c, open, onToggle, primaryLabel, on
 
       {open && <PipelineDiagram case={c} />}
       {open && <AccountFigures caseId={c.id} enabled={Boolean(c.tier2)} />}
+      {open && (
+        <TransactionHistory caseId={c.id} enabled={Boolean(c.tier2)} reasons={c.tier2?.reasons} />
+      )}
 
       {open && (
         <div className="detail-grid" style={{ padding: 0 }}>
