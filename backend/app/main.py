@@ -35,6 +35,39 @@ def lookup_customer(name: str, account_number: str):
     return customer
 
 
+@app.get("/api/test-accounts")
+def list_test_accounts():
+    """프론트 거래 접수 화면의 '테스트 계정 빠른 선택' 드롭다운용 (프로토타입 전용 편의 기능).
+    실제 창구 흐름(이름+계좌번호로 blind lookup)은 /api/customer-lookup, /api/cases 그대로 유지되며,
+    이 엔드포인트는 시연·테스트 시 값을 빠르게 채워 넣기 위한 목록 제공용일 뿐이다."""
+    return {
+        "customers": [
+            {
+                "name": c["name"],
+                "account_number": c["account_number"],
+                "age": c["age"],
+                "gender": c["gender"],
+            }
+            for c in accounts.CUSTOMERS
+        ],
+        "recipients": [
+            {
+                "label": r["label"],
+                "bank": r["bank"],
+                "account_number": r["account_number"],
+            }
+            for r in accounts.RECIPIENTS
+        ],
+    }
+
+
+@app.post("/api/dev/regenerate-test-accounts")
+def regenerate_test_accounts(n_per_archetype: int = 5):
+    """개발자 도구 전용: 대량 테스트 계좌 풀을 새로 생성해 즉시 반영한다(서버 재시작 불필요).
+    손으로 만든 데모 시나리오 계좌는 유지되고, 생성 계좌 풀만 새로 교체된다."""
+    return accounts.regenerate_generated_pool(n_per_archetype)
+
+
 @app.post("/api/cases")
 def create_case(payload: TransactionCreate):
     return _start_case(payload)

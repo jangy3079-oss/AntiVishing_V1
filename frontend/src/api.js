@@ -9,9 +9,21 @@ async function handle(res) {
 }
 
 export const api = {
-  listScenarios: () => fetch(`${BASE}/scenarios`).then(handle),
-  createCaseFromScenario: (scenarioId) =>
-    fetch(`${BASE}/cases/from-scenario/${scenarioId}`, { method: "POST" }).then(handle),
+  lookupCustomer: (name, accountNumber) =>
+    fetch(`${BASE}/customer-lookup?${new URLSearchParams({ name, account_number: accountNumber })}`).then(
+      handle
+    ),
+  listTestAccounts: () => fetch(`${BASE}/test-accounts`).then(handle),
+  regenerateTestAccounts: (nPerArchetype) =>
+    fetch(`${BASE}/dev/regenerate-test-accounts?${new URLSearchParams({ n_per_archetype: nPerArchetype })}`, {
+      method: "POST",
+    }).then(handle),
+  createCase: (payload) =>
+    fetch(`${BASE}/cases`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then(handle),
   getCase: (caseId) => fetch(`${BASE}/cases/${caseId}`).then(handle),
   submitStt: (caseId, transcript) =>
     fetch(`${BASE}/cases/${caseId}/stt`, {

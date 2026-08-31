@@ -1,0 +1,640 @@
+{
+  "customers": [
+    {
+      "name": "임예준",
+      "account_number": "240-3538-180913",
+      "age": 46,
+      "gender": "여",
+      "balance": 23599874,
+      "recent_channel": "영업점 창구 방문 (본인)",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 0.9,
+      "avg_amount": 0,
+      "max_amount_ever": 3871470,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "임우진",
+      "account_number": "339-9749-350786",
+      "age": 47,
+      "gender": "여",
+      "balance": 25685388,
+      "recent_channel": "모바일 앱 인증 후 창구 방문",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 3.9,
+      "avg_amount": 627335,
+      "max_amount_ever": 1559442,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "권현우",
+      "account_number": "828-9452-992512",
+      "age": 35,
+      "gender": "남",
+      "balance": 11758378,
+      "recent_channel": "모바일 앱 인증 후 창구 방문",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 0.5,
+      "avg_amount": 332823,
+      "max_amount_ever": 3132532,
+      "trusted_recipient_account_numbers": [
+        "995-7081-681478"
+      ]
+    },
+    {
+      "name": "정지민",
+      "account_number": "329-1461-434165",
+      "age": 87,
+      "gender": "남",
+      "balance": 10801203,
+      "recent_channel": "모바일 앱 인증 후 창구 방문",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 2.3,
+      "avg_amount": 0,
+      "max_amount_ever": 359416,
+      "trusted_recipient_account_numbers": [
+        "341-7326-185569"
+      ]
+    },
+    {
+      "name": "김현우",
+      "account_number": "344-7878-769989",
+      "age": 57,
+      "gender": "남",
+      "balance": 34542971,
+      "recent_channel": "영업점 창구 방문 (본인)",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 1.5,
+      "avg_amount": 101640,
+      "max_amount_ever": 2217999,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "이우진",
+      "account_number": "950-8612-829168",
+      "age": 58,
+      "gender": "남",
+      "balance": 10049803,
+      "recent_channel": "모바일 앱 인증 후 창구 방문",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 1.1,
+      "avg_amount": 0,
+      "max_amount_ever": 2847409,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "정우진",
+      "account_number": "658-5813-436814",
+      "age": 67,
+      "gender": "여",
+      "balance": 20840061,
+      "recent_channel": "영업점 창구 방문 (본인)",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 3.5,
+      "avg_amount": 468623,
+      "max_amount_ever": 555300,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "오하윤",
+      "account_number": "507-6150-781113",
+      "age": 45,
+      "gender": "여",
+      "balance": 2739014,
+      "recent_channel": "모바일 앱 인증 후 창구 방문",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 4.6,
+      "avg_amount": 223481,
+      "max_amount_ever": 2383468,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "조소율",
+      "account_number": "224-4292-930541",
+      "age": 72,
+      "gender": "여",
+      "balance": 2763891,
+      "recent_channel": "모바일 앱 인증 후 창구 방문",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 4.0,
+      "avg_amount": 0,
+      "max_amount_ever": 923227,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "정예준",
+      "account_number": "454-9501-397846",
+      "age": 33,
+      "gender": "여",
+      "balance": 37966341,
+      "recent_channel": "영업점 창구 방문 (본인)",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 2.6,
+      "avg_amount": 0,
+      "max_amount_ever": 1636134,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "윤채원",
+      "account_number": "627-2739-434617",
+      "age": 43,
+      "gender": "남",
+      "balance": 18949720,
+      "recent_channel": "영업점 창구 방문 (본인)",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 0.3,
+      "avg_amount": 502810,
+      "max_amount_ever": 2282642,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "이건우",
+      "account_number": "495-9261-572230",
+      "age": 63,
+      "gender": "여",
+      "balance": 9634453,
+      "recent_channel": "모바일 앱 인증 후 창구 방문",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 2.8,
+      "avg_amount": 0,
+      "max_amount_ever": 1869818,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "임지우",
+      "account_number": "274-9589-759580",
+      "age": 52,
+      "gender": "남",
+      "balance": 3118661,
+      "recent_channel": "영업점 창구 방문 (본인)",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 2.3,
+      "avg_amount": 0,
+      "max_amount_ever": 3664160,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "이준서",
+      "account_number": "806-9011-432441",
+      "age": 76,
+      "gender": "여",
+      "balance": 20313218,
+      "recent_channel": "모바일 앱 인증 후 창구 방문",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 4.1,
+      "avg_amount": 253591,
+      "max_amount_ever": 552879,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "조수아",
+      "account_number": "663-3587-526673",
+      "age": 58,
+      "gender": "남",
+      "balance": 20276688,
+      "recent_channel": "영업점 창구 방문 (본인)",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 3.3,
+      "avg_amount": 0,
+      "max_amount_ever": 1668549,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "임건우",
+      "account_number": "114-6523-929179",
+      "age": 46,
+      "gender": "여",
+      "balance": 12777264,
+      "recent_channel": "모바일 앱 인증 후 창구 방문",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 0.5,
+      "avg_amount": 0,
+      "max_amount_ever": 1379537,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "오소율",
+      "account_number": "324-3188-601410",
+      "age": 79,
+      "gender": "여",
+      "balance": 28906926,
+      "recent_channel": "영업점 창구 방문 (본인)",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 3.8,
+      "avg_amount": 0,
+      "max_amount_ever": 4608269,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "오시우",
+      "account_number": "788-6049-858414",
+      "age": 77,
+      "gender": "남",
+      "balance": 1202364,
+      "recent_channel": "영업점 창구 방문 (본인)",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 2.2,
+      "avg_amount": 0,
+      "max_amount_ever": 778974,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "최우진",
+      "account_number": "405-8585-806215",
+      "age": 78,
+      "gender": "여",
+      "balance": 16412494,
+      "recent_channel": "영업점 창구 방문 (본인)",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 1.5,
+      "avg_amount": 0,
+      "max_amount_ever": 3716845,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "장지민",
+      "account_number": "326-7775-415098",
+      "age": 45,
+      "gender": "남",
+      "balance": 29668945,
+      "recent_channel": "모바일 앱 인증 후 창구 방문",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 4.7,
+      "avg_amount": 499669,
+      "max_amount_ever": 3692384,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "조수아",
+      "account_number": "864-8846-354377",
+      "age": 41,
+      "gender": "여",
+      "balance": 38049414,
+      "recent_channel": "모바일 앱 인증 후 창구 방문",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 2.7,
+      "avg_amount": 476710,
+      "max_amount_ever": 2394137,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "장주원",
+      "account_number": "116-1108-658065",
+      "age": 63,
+      "gender": "여",
+      "balance": 2122472,
+      "recent_channel": "영업점 창구 방문 (본인)",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 2.6,
+      "avg_amount": 0,
+      "max_amount_ever": 1097718,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "장은서",
+      "account_number": "793-9856-447843",
+      "age": 52,
+      "gender": "남",
+      "balance": 6263193,
+      "recent_channel": "영업점 창구 방문 (본인)",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 2.2,
+      "avg_amount": 179710,
+      "max_amount_ever": 3527786,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "서도윤",
+      "account_number": "903-6315-503951",
+      "age": 74,
+      "gender": "남",
+      "balance": 27024787,
+      "recent_channel": "영업점 창구 방문 (본인)",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 3.5,
+      "avg_amount": 0,
+      "max_amount_ever": 2455855,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "한수아",
+      "account_number": "548-5773-971662",
+      "age": 78,
+      "gender": "남",
+      "balance": 10340152,
+      "recent_channel": "모바일 앱 인증 후 창구 방문",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 3.3,
+      "avg_amount": 543681,
+      "max_amount_ever": 820464,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "장다은",
+      "account_number": "268-4996-641058",
+      "age": 39,
+      "gender": "여",
+      "balance": 23212339,
+      "recent_channel": "영업점 창구 방문 (본인)",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 4.0,
+      "avg_amount": 0,
+      "max_amount_ever": 1763526,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "한지민",
+      "account_number": "109-8939-243167",
+      "age": 77,
+      "gender": "여",
+      "balance": 28456541,
+      "recent_channel": "모바일 앱 인증 후 창구 방문",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 2.5,
+      "avg_amount": 0,
+      "max_amount_ever": 2049935,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "임주원",
+      "account_number": "711-9827-276556",
+      "age": 87,
+      "gender": "남",
+      "balance": 20416825,
+      "recent_channel": "영업점 창구 방문 (본인)",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 4.8,
+      "avg_amount": 0,
+      "max_amount_ever": 2526358,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "김다은",
+      "account_number": "741-8529-117072",
+      "age": 70,
+      "gender": "남",
+      "balance": 31636413,
+      "recent_channel": "영업점 창구 방문 (본인)",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 4.4,
+      "avg_amount": 0,
+      "max_amount_ever": 2498641,
+      "trusted_recipient_account_numbers": []
+    },
+    {
+      "name": "서예준",
+      "account_number": "243-3017-718213",
+      "age": 76,
+      "gender": "남",
+      "balance": 22105983,
+      "recent_channel": "모바일 앱 인증 후 창구 방문",
+      "notable_activity": null,
+      "avg_monthly_tx_count": 3.3,
+      "avg_amount": 360221,
+      "max_amount_ever": 425019,
+      "trusted_recipient_account_numbers": []
+    }
+  ],
+  "recipients": [
+    {
+      "label": "개인 명의 계좌(가족 송금 추정) #1",
+      "bank": "우리은행",
+      "account_number": "449-8967-301332",
+      "transactions_csv": "GEN_NORMAL_LIGHT_01.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(가족 송금 추정) #2",
+      "bank": "토스뱅크",
+      "account_number": "725-5668-888939",
+      "transactions_csv": "GEN_NORMAL_LIGHT_02.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(가족 송금 추정) #3",
+      "bank": "신한은행",
+      "account_number": "995-7081-681478",
+      "transactions_csv": "GEN_NORMAL_LIGHT_03.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(가족 송금 추정) #4",
+      "bank": "기업은행",
+      "account_number": "341-7326-185569",
+      "transactions_csv": "GEN_NORMAL_LIGHT_04.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(가족 송금 추정) #5",
+      "bank": "국민은행",
+      "account_number": "343-5934-227767",
+      "transactions_csv": "GEN_NORMAL_LIGHT_05.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인사업자 계좌(거래처 입금) #6",
+      "bank": "하나은행",
+      "account_number": "460-9945-454992",
+      "transactions_csv": "GEN_NORMAL_BUSINESS_06.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": false
+    },
+    {
+      "label": "개인사업자 계좌(거래처 입금) #7",
+      "bank": "하나은행",
+      "account_number": "180-8055-731718",
+      "transactions_csv": "GEN_NORMAL_BUSINESS_07.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": false
+    },
+    {
+      "label": "개인사업자 계좌(거래처 입금) #8",
+      "bank": "기업은행",
+      "account_number": "881-2259-701800",
+      "transactions_csv": "GEN_NORMAL_BUSINESS_08.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": true
+    },
+    {
+      "label": "개인사업자 계좌(거래처 입금) #9",
+      "bank": "우리은행",
+      "account_number": "828-3852-932250",
+      "transactions_csv": "GEN_NORMAL_BUSINESS_09.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": true
+    },
+    {
+      "label": "개인사업자 계좌(거래처 입금) #10",
+      "bank": "우리은행",
+      "account_number": "411-3697-269834",
+      "transactions_csv": "GEN_NORMAL_BUSINESS_10.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": true
+    },
+    {
+      "label": "개인 명의 계좌(즉시인출 패턴) #11",
+      "bank": "하나은행",
+      "account_number": "426-6658-518084",
+      "transactions_csv": "GEN_MULE_IMMEDIATE_11.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(즉시인출 패턴) #12",
+      "bank": "신협",
+      "account_number": "152-4189-480133",
+      "transactions_csv": "GEN_MULE_IMMEDIATE_12.csv",
+      "early_warning_db_hit": true,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(즉시인출 패턴) #13",
+      "bank": "국민은행",
+      "account_number": "894-4728-856442",
+      "transactions_csv": "GEN_MULE_IMMEDIATE_13.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(즉시인출 패턴) #14",
+      "bank": "농협은행",
+      "account_number": "405-4684-412071",
+      "transactions_csv": "GEN_MULE_IMMEDIATE_14.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(즉시인출 패턴) #15",
+      "bank": "하나은행",
+      "account_number": "834-8739-205428",
+      "transactions_csv": "GEN_MULE_IMMEDIATE_15.csv",
+      "early_warning_db_hit": true,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(분산입금 패턴) #16",
+      "bank": "하나은행",
+      "account_number": "763-5215-853504",
+      "transactions_csv": "GEN_MULE_STRUCTURING_16.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(분산입금 패턴) #17",
+      "bank": "우리은행",
+      "account_number": "402-7021-744481",
+      "transactions_csv": "GEN_MULE_STRUCTURING_17.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(분산입금 패턴) #18",
+      "bank": "토스뱅크",
+      "account_number": "567-1945-685941",
+      "transactions_csv": "GEN_MULE_STRUCTURING_18.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(분산입금 패턴) #19",
+      "bank": "국민은행",
+      "account_number": "954-1056-892911",
+      "transactions_csv": "GEN_MULE_STRUCTURING_19.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(분산입금 패턴) #20",
+      "bank": "신협",
+      "account_number": "342-5944-250219",
+      "transactions_csv": "GEN_MULE_STRUCTURING_20.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(심야거래 패턴) #21",
+      "bank": "신한은행",
+      "account_number": "316-4113-877493",
+      "transactions_csv": "GEN_MULE_NIGHT_21.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(심야거래 패턴) #22",
+      "bank": "토스뱅크",
+      "account_number": "782-8916-791309",
+      "transactions_csv": "GEN_MULE_NIGHT_22.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(심야거래 패턴) #23",
+      "bank": "카카오뱅크",
+      "account_number": "266-4939-694223",
+      "transactions_csv": "GEN_MULE_NIGHT_23.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(심야거래 패턴) #24",
+      "bank": "케이뱅크",
+      "account_number": "462-2524-725920",
+      "transactions_csv": "GEN_MULE_NIGHT_24.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(심야거래 패턴) #25",
+      "bank": "우리은행",
+      "account_number": "127-8563-842776",
+      "transactions_csv": "GEN_MULE_NIGHT_25.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(복합 이상거래 패턴) #26",
+      "bank": "신한은행",
+      "account_number": "969-6620-779445",
+      "transactions_csv": "GEN_MULE_COMBO_26.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(복합 이상거래 패턴) #27",
+      "bank": "국민은행",
+      "account_number": "962-8389-749498",
+      "transactions_csv": "GEN_MULE_COMBO_27.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(복합 이상거래 패턴) #28",
+      "bank": "기업은행",
+      "account_number": "924-1972-697766",
+      "transactions_csv": "GEN_MULE_COMBO_28.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(복합 이상거래 패턴) #29",
+      "bank": "국민은행",
+      "account_number": "907-6631-815707",
+      "transactions_csv": "GEN_MULE_COMBO_29.csv",
+      "early_warning_db_hit": true,
+      "biz_reg_verified": null
+    },
+    {
+      "label": "개인 명의 계좌(복합 이상거래 패턴) #30",
+      "bank": "신한은행",
+      "account_number": "730-8248-327797",
+      "transactions_csv": "GEN_MULE_COMBO_30.csv",
+      "early_warning_db_hit": false,
+      "biz_reg_verified": null
+    }
+  ]
+}

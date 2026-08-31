@@ -20,6 +20,7 @@ CUSTOMERS/RECIPIENTS 정의와 docs/03_API명세서.md 부록에서만 확인 �
   지표라, 데모 스토리텔링용으로만 일부 계좌(대포통장 전형 패턴)에 남겨두었고
   판단의 주 근거로 과장하지 않는다.
 """
+import os
 
 # --- 고객 (창구에 온 사람). 이름 + 본인 계좌번호 조합으로만 조회된다. ---
 CUSTOMERS = [
@@ -91,6 +92,58 @@ CUSTOMERS = [
         "max_amount_ever": 100_000,
         "trusted_recipient_account_numbers": set(),
     },
+    {
+        "name": "이지훈",
+        "account_number": "660-7788-990011",
+        "age": 45,
+        "gender": "남",
+        "balance": 8_760_000,
+        "recent_channel": "영업점 창구 방문 (본인)",
+        "notable_activity": None,
+        "avg_monthly_tx_count": 4.0,
+        "avg_amount": 600_000,
+        "max_amount_ever": 4_000_000,
+        "trusted_recipient_account_numbers": set(),
+    },
+    {
+        "name": "한소영",
+        "account_number": "770-8899-001122",
+        "age": 34,
+        "gender": "여",
+        "balance": 6_530_000,
+        "recent_channel": "모바일 앱 인증 후 창구 방문",
+        "notable_activity": None,
+        "avg_monthly_tx_count": 5.0,
+        "avg_amount": 350_000,
+        "max_amount_ever": 1_800_000,
+        "trusted_recipient_account_numbers": {"823-119-004432"},
+    },
+    {
+        "name": "강필용",
+        "account_number": "880-9900-112233",
+        "age": 69,
+        "gender": "남",
+        "balance": 15_200_000,
+        "recent_channel": "영업점 창구 방문 (본인)",
+        "notable_activity": None,
+        "avg_monthly_tx_count": 1.0,
+        "avg_amount": 250_000,
+        "max_amount_ever": 1_000_000,
+        "trusted_recipient_account_numbers": {"204-778-330091"},
+    },
+    {
+        "name": "오순덕",
+        "account_number": "990-0011-223344",
+        "age": 83,
+        "gender": "여",
+        "balance": 41_800_000,
+        "recent_channel": "영업점 창구 방문 (본인)",
+        "notable_activity": None,
+        "avg_monthly_tx_count": 0.3,
+        "avg_amount": 100_000,
+        "max_amount_ever": 500_000,
+        "trusted_recipient_account_numbers": set(),
+    },
 ]
 
 # --- 수취계좌. 계좌번호로만 조회된다(은행명은 표시용 참고 정보, 매칭에는 쓰지 않음). ---
@@ -138,7 +191,71 @@ RECIPIENTS = [
         "early_warning_db_hit": False,
         "biz_reg_verified": None,
     },
+    {
+        "label": "강필용 아들 계좌",
+        "bank": "기업은행",
+        "account_number": "204-778-330091",
+        "transactions_csv": "REC_TRUSTED_02.csv",
+        "early_warning_db_hit": False,
+        "biz_reg_verified": None,
+    },
+    {
+        "label": "한소영 배우자 계좌",
+        "bank": "신협",
+        "account_number": "823-119-004432",
+        "transactions_csv": "REC_TRUSTED_03.csv",
+        "early_warning_db_hit": False,
+        "biz_reg_verified": None,
+    },
+    {
+        "label": "다수 입금 상대방 계좌(구조화 의심)",
+        "bank": "케이뱅크",
+        "account_number": "701-334-882210",
+        "transactions_csv": "REC_STRUCTURING.csv",
+        "early_warning_db_hit": False,
+        "biz_reg_verified": None,
+    },
 ]
+
+# 위 손으로 만든 시나리오 계좌(데모/명세서 부록 케이스)는 CUSTOMERS/RECIPIENTS가 아래에서
+# 대량 생성 계좌로 확장되어도 항상 그대로 유지되도록 스냅샷을 남겨둔다.
+_HANDCRAFTED_CUSTOMERS = list(CUSTOMERS)
+_HANDCRAFTED_RECIPIENTS = list(RECIPIENTS)
+
+# 손으로 만든 시나리오 계좌에 더해, 대량 테스트 계좌를 generate_test_accounts.py로 생성해
+# 이어붙인다. 위험 점수를 미리 정해두지 않고 account_analysis.py가 각 계좌의 CSV를
+# 규칙기반+통계적 이상탐지로 매번 계산하므로, 계좌 수를 늘려도 "판정 로직이 하드코딩된
+# 라벨 아니냐"는 오해 없이 검증할 수 있다.
+# 터미널에서 재생성: cd backend && python -m app.data.generate_test_accounts
+# 프론트 개발자 도구의 "랜덤 계좌 재생성" 버튼은 아래 regenerate_generated_pool()을 호출한다
+# (서버 재시작 없이 즉시 반영됨).
+#
+# 저장 형식은 .py가 아니라 accounts_generated.json이다. uvicorn --reload(README에 안내된
+# 로컬 실행 방식)는 기본적으로 *.py 파일이 바뀌면 서버를 통째로 재시작하는데, 예전에 생성
+# 결과를 .py로 저장했더니 "랜덤 계좌 재생성" 요청이 스스로 처리되는 도중에 서버가 재시작되며
+# 응답이 끊겨 프론트에 500 에러로 뜨는 문제가 있었다(.json은 감시 대상이 아니라 안전하다).
+from app.data import generate_test_accounts as _gen  # noqa: E402
+
+GENERATED_CUSTOMERS, GENERATED_RECIPIENTS = _gen.load_json()
+CUSTOMERS += GENERATED_CUSTOMERS
+RECIPIENTS += GENERATED_RECIPIENTS
+
+
+def regenerate_generated_pool(n_per_archetype: int = 5) -> dict:
+    """대량 테스트 계좌 풀을 새로 생성해 CUSTOMERS/RECIPIENTS에 즉시 반영한다.
+
+    손으로 만든 데모 시나리오 계좌(_HANDCRAFTED_*)는 건드리지 않고, 그 뒤에 붙는
+    생성 계좌 풀만 통째로 교체한다. 매 호출마다 난수 시퀀스가 이어지므로(모듈
+    최초 import 시 seed(42) 고정) 서버를 재시작하지 않는 한 호출할 때마다 새로운
+    조합이 나온다.
+    """
+    _gen.N_PER_ARCHETYPE = max(1, n_per_archetype)
+    new_customers, new_recipients = _gen.generate()
+    _gen.save_json(new_customers, new_recipients)
+
+    CUSTOMERS[:] = _HANDCRAFTED_CUSTOMERS + new_customers
+    RECIPIENTS[:] = _HANDCRAFTED_RECIPIENTS + new_recipients
+    return {"customers": len(CUSTOMERS), "recipients": len(RECIPIENTS)}
 
 # --- 알려진 보이스피싱/사기 스크립트 패턴 (RAG 대조용 참고 문서) ---
 KNOWN_SCAM_PATTERNS = [
