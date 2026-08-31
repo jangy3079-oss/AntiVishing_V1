@@ -178,14 +178,38 @@ def _draw_exceedance_cell(ax, col: str, pf: dict) -> None:
     # 이 계좌가 정상 분포에서 상위 몇 %에 해당하는지 계산해 곡선 위에 표시한다.
     case_value = pf["case_value"]
     case_top_p = 100 - _percentile_of(case_value, normal_vals)
-    case_top_p_clamped = min(max(case_top_p, _EXCEEDANCE_P[-1]), _EXCEEDANCE_P[0])
-    ax.axvline(case_top_p_clamped, color=_COLOR_CASE, linestyle="-", linewidth=2, label="이 계좌 위치")
-    off_scale = case_top_p < _EXCEEDANCE_P[-1]
-    case_label = f"이 계좌: 정상 상위 {case_top_p:.1f}%대\n(값 {case_value:.3f})"
-    if off_scale:
-        case_label = f"이 계좌: 정상 상위 {case_top_p:.2f}%\n(값 {case_value:.3f}, 그래프 범위보다 더 극단)"
+    last_tick = _EXCEEDANCE_P[-1]  # 0.5
+    off_scale = case_top_p < last_tick
+
+    if not off_scale:
+        case_pos = min(max(case_top_p, last_tick), _EXCEEDANCE_P[0])
+        case_label = f"이 계좌: 정상 상위 {case_top_p:.1f}%대\n(값 {case_value:.3f})"
+    else:
+        # 정상계좌 표본 전체의 상위 0.5% 문턱값보다도 더 극단적이면, 퍼센타일 순위로는 더 이상
+        # 구분이 안 된다(다들 "0.5%보다 위"로 뭉뚱그려짐 — 실제로 서로 다른 정도로 극단적인 두
+        # 케이스가 이 지점에서 겹쳐 보이는 문제가 있었다). 대신 값 자체가 그 문턱값의 몇 배인지를
+        # 로그압축해서 0.5% 눈금 너머의 별도 구간에 위치시켜, 배율이 다르면 위치도 달라지게 한다.
+        threshold_last = np.percentile(normal_vals, 100 - last_tick)
+        ratio = case_value / threshold_last if threshold_last > 0 else 1.0
+        # 상한을 20배 정도로 낮게 두면, 실제 데모 계좌 중 20~40배대인 것들이 전부 구간 끝에
+        # 뭉쳐서 또 똑같이 보이는 문제가 있었다(txn_frequency_per_day 지표는 짧은 관측기간
+        # 때문에 배율이 원래 크게 나온다 — compute_case_position()의 caveat 참고). 실측 범위를
+        # 여유 있게 담을 수 있도록 상한을 200배로 넉넉히 잡는다.
+        ratio_ceil = 200.0
+        frac = min(np.log(max(ratio, 1.0)) / np.log(ratio_ceil), 1.0) if ratio > 1 else 0.0
+        zone_log_span = 1.5  # 0.5% 아래로 로그 스케일 기준 확보할 여유 구간(log10 단위, 넉넉히)
+        case_pos = last_tick * (10 ** (-frac * zone_log_span))
+        case_label = f"이 계좌: 정상 상위 0.5% 문턱값의 {ratio:.1f}배\n(값 {case_value:.3f}, 그래프 범위보다 더 극단)"
+        # 아래에서 invert_xaxis()가 (left, right)를 다시 뒤집으므로, 여기서는 뒤집히기 전 순서
+        # (작은 값, 큰 값)로 넣어야 최종적으로 "왼쪽=50%(덜 극단) / 오른쪽=압축구간(더 극단)"이 된다.
+        zone_edge = last_tick * (10 ** (-zone_log_span * 1.1))
+        ax.set_xlim(zone_edge, _EXCEEDANCE_P[0] * 1.3)
+        ax.axvspan(zone_edge, last_tick, color="#eee", alpha=0.7, zorder=0)
+        ax.axvline(last_tick, color="#999", linestyle=":", linewidth=1)
+
+    ax.axvline(case_pos, color=_COLOR_CASE, linestyle="-", linewidth=2, label="이 계좌 위치")
     ax.annotate(
-        case_label, xy=(case_top_p_clamped, ax.get_ylim()[1] if ax.get_ylim()[1] else 10),
+        case_label, xy=(case_pos, ax.get_ylim()[1] if ax.get_ylim()[1] else 10),
         xytext=(0.97, 0.95), textcoords="axes fraction", ha="right", va="top",
         fontsize=8.5, fontweight="bold", color="#8a5a12",
         bbox=dict(boxstyle="round,pad=0.35", fc="#FFF3DC", ec=_COLOR_CASE),
@@ -231,19 +255,33 @@ def _render_distance(position: dict) -> str:
     ax.axvline(position["dist_anomaly_mean"], color=_COLOR_ANOMALY, linestyle="--", linewidth=1.5)
 
     case_dist = position["dist_from_normal"]
-    ax.set_xlim(0, pop_max)
     if case_dist <= pop_max:
+        ax.set_xlim(0, pop_max)
         ax.axvline(case_dist, color=_COLOR_CASE, linestyle="-", linewidth=2.5, label="이 계좌")
     else:
         # 데모 CSV는 관측 기간이 며칠뿐이라 이 케이스 값이 정상 분포 범위(상위 1%)를 훨씬 벗어나는
-        # 경우가 흔하다. 축을 늘려서 정상·이상연루 분포를 다 눌러버리는 대신, 오른쪽 끝에 화살표로
-        # "범위 밖" 값이라는 걸 명시해 분포 모양과 케이스 값을 동시에 읽을 수 있게 한다.
+        # 경우가 흔하고, 그 벗어난 정도(몇 배나 벗어났는지)도 케이스마다 크게 다르다. 예전에는
+        # "범위 밖"이면 무조건 같은 지점(오른쪽 끝)에 표시해서, 정도가 다른 두 극단 케이스가 같은
+        # 위치에 겹쳐 보이는 문제가 있었다. 지금은 오른쪽에 로그압축된 별도 구간을 만들어, 정상
+        # 범위 대비 몇 배나 벗어났는지(ratio)에 따라 그 구간 안에서도 위치가 달라지게 한다.
+        ratio = case_dist / pop_max
+        ratio_ceil = 30.0  # 정상범위의 이 배수까지는 위치로 구분, 그 이상은 압축구간 끝에 뭉침
+        frac = min(np.log(ratio) / np.log(ratio_ceil), 1.0)
+        zone_width = pop_max * 0.35
+        fig_max = pop_max + zone_width
+        x_pos = pop_max + frac * zone_width
+
+        ax.set_xlim(0, fig_max)
+        ax.axvspan(pop_max, fig_max, color="#eee", alpha=0.7)
+        ax.axvline(pop_max, color="#999", linestyle=":", linewidth=1)
+        ax.text(pop_max + zone_width * 0.03, ax.get_ylim()[1] * 0.03, "범위 밖\n(로그압축)", fontsize=7, color="#888", va="bottom")
+
+        ax.axvline(x_pos, color=_COLOR_CASE, linestyle="-", linewidth=2.5, label="이 계좌 (범위 밖·로그압축 위치)")
         ymax = ax.get_ylim()[1]
-        ax.axvspan(pop_max * 0.965, pop_max, color=_COLOR_CASE, alpha=0.18)
         ax.annotate(
-            f"이 계좌: {case_dist:.1f}\n(그래프 범위 밖 · 정상군보다 매우 이례적)",
-            xy=(pop_max, ymax * 0.5), xytext=(pop_max * 0.55, ymax * 0.85),
-            fontsize=10, fontweight="bold", color="#8a5a12",
+            f"이 계좌: {case_dist:.1f}\n(그래프 범위 밖 · 정상범위의 {ratio:.1f}배)",
+            xy=(x_pos, ymax * 0.5), xytext=(pop_max * 0.45, ymax * 0.85),
+            fontsize=9.5, fontweight="bold", color="#8a5a12",
             arrowprops=dict(arrowstyle="->", color=_COLOR_CASE, linewidth=2),
             bbox=dict(boxstyle="round,pad=0.4", fc="#FFF3DC", ec=_COLOR_CASE),
         )
