@@ -1,8 +1,8 @@
 const STEP_DEFS = [
-  { key: "intake", label: "거래 접수" },
-  { key: "auto", label: "자동 심사" },
+  { key: "intake", label: "거래접수" },
+  { key: "auto", label: "자동심사" },
   { key: "verify", label: "확인" },
-  { key: "final", label: "최종 판정" },
+  { key: "final", label: "최종판정" },
   { key: "action", label: "조치" },
 ];
 
@@ -19,8 +19,10 @@ export function computeSteps(c) {
 
   if (c.status === "TIER1_LOW_RISK_COMPLETED") {
     steps[2].state = "skipped";
+    steps[2].label = "확인 · 건너뜀";
     steps[3].state = "done";
     steps[4].state = "skipped";
+    steps[4].label = "조치 · 건너뜀";
     return steps;
   }
 
@@ -30,7 +32,8 @@ export function computeSteps(c) {
   }
 
   if (c.status === "STT_HARD_BLOCKED") {
-    steps[2].state = "skipped";
+    steps[2].state = "done";
+    steps[2].label = "확인 · 음성에서 종료";
     steps[3].state = "done";
     steps[4].state = c.next_action === "high_risk_actions" ? "active" : "done";
     return steps;
@@ -47,6 +50,7 @@ export function computeSteps(c) {
     steps[2].state = "done";
     steps[3].state = "done";
     steps[4].state = "skipped";
+    steps[4].label = "조치 · 건너뜀";
     return steps;
   }
 
@@ -64,11 +68,10 @@ export default function StepIndicator({ case: c }) {
   const steps = computeSteps(c);
   return (
     <div className="steps">
-      {steps.map((s, i) => (
+      {steps.map((s) => (
         <div key={s.key} className={`step step-${s.state}`}>
-          <div className="step-dot">{s.state === "done" ? "✓" : i + 1}</div>
+          <div className="step-dot" />
           <div className="step-label">{s.label}</div>
-          {i < steps.length - 1 && <div className="step-line" />}
         </div>
       ))}
     </div>

@@ -21,36 +21,38 @@ export default function VerificationPanel({ case: c, onUpdated }) {
   if (!c || !c.next_action || c.next_action === "none_completed") return null;
 
   if (c.next_action === "stt_optional_or_yesno" || c.next_action === "yesno") {
+    const autoTrigger = c.next_action === "stt_optional_or_yesno" && Boolean(c.tier2?.high_auto_signal);
     return (
-      <div className="panel">
+      <div className="verify-wrap">
         {c.next_action === "stt_optional_or_yesno" && (
-          <SttBlock
-            caseId={c.id}
-            onRun={run}
-            loading={loading}
-            autoTrigger={Boolean(c.tier2?.high_auto_signal)}
-          />
+          <SttBlock caseId={c.id} onRun={run} loading={loading} autoTrigger={autoTrigger} />
         )}
-        <YesNoBlock caseId={c.id} onRun={run} loading={loading} />
-        {error && <div className="error">{error}</div>}
+        {!autoTrigger && <YesNoBlock caseId={c.id} onRun={run} loading={loading} />}
+        {error && <div className="field-error-msg">{error}</div>}
       </div>
     );
   }
 
   if (c.next_action === "freetext") {
     return (
-      <div className="panel">
-        <FreeTextBlock caseId={c.id} onRun={run} loading={loading} followup={c.freetext_analysis} />
-        {error && <div className="error">{error}</div>}
+      <div className="verify-wrap">
+        <FreeTextBlock
+          caseId={c.id}
+          onRun={run}
+          loading={loading}
+          followup={c.freetext_analysis}
+          conversation={c.conversation}
+        />
+        {error && <div className="field-error-msg">{error}</div>}
       </div>
     );
   }
 
   if (c.next_action === "high_risk_actions") {
     return (
-      <div className="panel">
-        <EscalationBlock caseId={c.id} onRun={run} loading={loading} alreadySent={c.already_sent} />
-        {error && <div className="error">{error}</div>}
+      <div className="verify-wrap">
+        <EscalationBlock caseId={c.id} onRun={run} loading={loading} case={c} />
+        {error && <div className="field-error-msg">{error}</div>}
       </div>
     );
   }
@@ -58,7 +60,6 @@ export default function VerificationPanel({ case: c, onUpdated }) {
   return null;
 }
 
-// 브라우저가 돌려주는 음성인식 오류 코드를 사람이 이해할 수 있는 한국어 안내로 변환한다.
 function describeSttError(code) {
   switch (code) {
     case "not-allowed":
@@ -71,10 +72,34 @@ function describeSttError(code) {
     case "network":
       return "네트워크 오류로 음성인식에 실패했습니다.";
     case "aborted":
-      return null; // 사용자가 직접 중지한 경우는 오류로 표시하지 않음
+      return null;
     default:
       return `음성인식 중 오류가 발생했습니다 (${code}). 아래에 직접 입력해주세요.`;
   }
+}
+
+function describeSttStartError(err) {
+  const name = err?.name || "";
+  if (name === "NotAllowedError" || name === "SecurityError") {
+    return "마이크 권한이 거부되었거나, 보안 연결(HTTPS 또는 localhost)이 아니라서 음성 인식을 시작할 수 없습니다. 브라우저 주소창의 마이크 권한을 확인해주세요.";
+  }
+  return `음성 인식을 시작할 수 없습니다 (${name || err}). 아래에 직접 입력해주세요.`;
+}
+
+function useElapsedTimer(active) {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (!active) {
+      setSeconds(0);
+      return;
+    }
+    const start = Date.now();
+    const id = setInterval(() => setSeconds(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [active]);
+  const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
+  const ss = String(seconds % 60).padStart(2, "0");
+  return `${mm}:${ss}`;
 }
 
 function SttBlock({ caseId, onRun, loading, autoTrigger }) {
@@ -82,11 +107,10 @@ function SttBlock({ caseId, onRun, loading, autoTrigger }) {
   const [listening, setListening] = useState(false);
   const [supported, setSupported] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [manualMode, setManualMode] = useState(false);
   const recognitionRef = useRef(null);
   const startedRef = useRef(false);
 
-  // 이상거래 신호(첫 송금+고액+수취계좌 이상패턴)가 감지된 케이스(autoTrigger)는
-  // 직원이 버튼을 누르지 않아도 음성인식이 자동으로 시작된다.
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -99,9 +123,7 @@ function SttBlock({ caseId, onRun, loading, autoTrigger }) {
     recognition.interimResults = true;
     recognition.onresult = (e) => {
       let combined = "";
-      for (let i = 0; i < e.results.length; i++) {
-        combined += e.results[i][0].transcript;
-      }
+      for (let i = 0; i < e.results.length; i++) combined += e.results[i][0].transcript;
       setTranscript(combined);
     };
     recognition.onstart = () => setErrorMsg(null);
@@ -117,85 +139,118 @@ function SttBlock({ caseId, onRun, loading, autoTrigger }) {
       try {
         recognition.start();
         setListening(true);
-      } catch {
+      } catch (err) {
         setListening(false);
+        // InvalidStateError(이미 인식 중)는 무시해도 되지만, 그 외(보안 컨텍스트 아님 등)는
+        // 예전엔 조용히 삼켜서 아무 반응도 없는 것처럼 보였다 - 원인을 화면에 보여준다.
+        if (err?.name !== "InvalidStateError") {
+          setErrorMsg(describeSttStartError(err));
+        }
       }
     }
-
     return () => recognition.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const toggleListening = () => {
+  const startListening = () => {
     const recognition = recognitionRef.current;
     if (!recognition) return;
-    if (listening) {
-      recognition.stop();
-      setListening(false);
-    } else {
-      setErrorMsg(null);
-      try {
-        recognition.start();
-        setListening(true);
-      } catch {
-        /* 이미 인식 중인 경우 등은 무시 */
+    setErrorMsg(null);
+    setManualMode(false);
+    try {
+      recognition.start();
+      setListening(true);
+    } catch (err) {
+      if (err?.name !== "InvalidStateError") {
+        setErrorMsg(describeSttStartError(err));
       }
     }
   };
+  const stopListening = () => {
+    recognitionRef.current?.stop();
+    setListening(false);
+  };
+
+  const showPanel = autoTrigger || listening || (transcript && !manualMode);
+  const timer = useElapsedTimer(listening);
+
+  if (!showPanel) {
+    return (
+      <div className="stt-optin-row">
+        <div>
+          <div className="t">통화 중이라면 음성 인식을 켤 수 있습니다</div>
+          <div className="s">
+            {supported
+              ? "선택 사항 · 이 거래에서는 자동으로 켜지지 않았습니다"
+              : "이 브라우저는 음성 인식을 지원하지 않습니다(Chrome/Edge 권장). 아래에 직접 입력해주세요."}
+          </div>
+        </div>
+        <button className="btn-outline-navy" type="button" onClick={supported ? startListening : () => setManualMode(true)}>
+          {supported ? "음성 인식 시작" : "직접 입력"}
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="stage">
-      <h3>① 통화 중 코칭 정황 확인 {autoTrigger ? "(자동 시작됨)" : "(선택)"}</h3>
-
+    <div>
       {autoTrigger && (
-        <div className="stt-notice">
-          ⚠ 이상거래 정황(첫 송금·고액·수취계좌 이상패턴)이 감지되어 확인을 위해 상담 내용이
-          자동으로 기록됩니다. 고객에게 안내해주세요.
+        <div className="eyebrow" style={{ marginBottom: 8 }}>지금 할 일</div>
+      )}
+      {autoTrigger && (
+        <div className="h-page" style={{ fontSize: 38, marginBottom: 22 }}>
+          고객이 통화 중인지 확인하고, 대화를 그대로 두세요
         </div>
       )}
 
-      {!supported ? (
-        <p className="hint">
-          이 브라우저는 음성인식을 지원하지 않습니다. 창구 대화 내용을 아래에 직접 입력해주세요. (Chrome
-          사용을 권장합니다)
-        </p>
+      {(!supported || manualMode) ? (
+        <div className="stt-manual-wrap">
+          <textarea
+            rows={3}
+            value={transcript}
+            onChange={(e) => setTranscript(e.target.value)}
+            placeholder="예: 검찰청이라면서 안전계좌로 옮기라고 계속 통화중이에요"
+          />
+        </div>
       ) : (
-        <div className="stt-status">
-          {listening && (
-            <span className="stt-wave">
-              {[0, 1, 2, 3].map((i) => (
-                <span key={i} className="wave-bar" style={{ animationDelay: `${i * 0.12}s` }} />
-              ))}
-            </span>
-          )}
-          <span>{listening ? "음성 인식 중..." : "음성 인식 대기 중"}</span>
-          <button className="link-btn" type="button" onClick={toggleListening}>
-            {listening ? "중지" : "다시 시작"}
-          </button>
+        <div className="stt-panel">
+          <div className="stt-panel-head">
+            <div className="dot" />
+            <div className="label">{listening ? "음성 인식 중 · " + (autoTrigger ? "자동 시작됨" : "직접 시작함") : "음성 인식 대기"}</div>
+            <div className="timer">{timer}</div>
+          </div>
+          <div className="wave-row">
+            {Array.from({ length: 18 }).map((_, i) => (
+              <div
+                key={i}
+                className="wave-bar"
+                style={{ animationDelay: `${(i % 9) * 0.08}s`, opacity: listening ? 1 : 0.3 }}
+              />
+            ))}
+          </div>
+          <div className="stt-transcript-preview">
+            {transcript ? `"${transcript}"` : "음성을 인식하면 여기에 실시간으로 표시됩니다..."}
+          </div>
         </div>
       )}
 
-      {errorMsg && <div className="stt-error">⚠ {errorMsg}</div>}
+      {errorMsg && <div className="stt-error-box">⚠ {errorMsg}</div>}
 
-      {!autoTrigger && (
-        <p className="hint">
-          고객이 통화 중인 것으로 보이면, 창구 대화 STT 텍스트를 입력해 코칭 정황을 분석합니다. 해당 없으면
-          아래 Y/N 질문으로 바로 진행하세요.
-        </p>
-      )}
-
-      <textarea
-        rows={3}
-        value={transcript}
-        onChange={(e) => setTranscript(e.target.value)}
-        placeholder="예: 검찰청이라면서 안전계좌로 옮기라고 계속 통화중이에요"
-      />
-      <button
-        disabled={!transcript || loading}
-        onClick={() => onRun(() => api.submitStt(caseId, transcript))}
-      >
-        STT 분석 실행
-      </button>
+      <div className="verify-actions-row">
+        <button
+          className="btn-block"
+          disabled={!transcript || loading}
+          onClick={() => {
+            stopListening();
+            onRun(() => api.submitStt(caseId, transcript));
+          }}
+        >
+          인식 중지하고 분석
+        </button>
+        <button className="btn-secondary" type="button" onClick={() => setManualMode((v) => !v)}>
+          직접 입력
+        </button>
+      </div>
     </div>
   );
 }
@@ -205,77 +260,185 @@ function YesNoBlock({ caseId, onRun, loading }) {
   const [aware, setAware] = useState(null);
   const ready = known !== null && aware !== null;
   return (
-    <div className="stage">
-      <h3>② 확인 질문 (Y/N)</h3>
-      <div className="question">
-        <span>아는 사람/사업체인가요?</span>
-        <YesNoButtons value={known} onChange={setKnown} />
+    <div className="verify-wrap">
+      <div className="eyebrow">고객에게 그대로 읽어주세요 · 2문항</div>
+      <div className="verify-title md">답변을 눌러주세요</div>
+
+      <div className="yn-question">
+        <div className="q">1. 이 계좌의 주인을 아는 사람 또는 아는 사업체입니까?</div>
+        <div className="yn-buttons">
+          <button className={known === true ? "selected" : ""} onClick={() => setKnown(true)}>예</button>
+          <button className={known === false ? "selected" : ""} onClick={() => setKnown(false)}>아니오</button>
+        </div>
       </div>
-      <div className="question">
-        <span>이 돈의 정확한 용도를 알고 계신가요?</span>
-        <YesNoButtons value={aware} onChange={setAware} />
+      <div className="yn-question">
+        <div className="q">2. 이 돈의 정확한 용도를 알고 계십니까?</div>
+        <div className="yn-buttons">
+          <button className={aware === true ? "selected" : ""} onClick={() => setAware(true)}>예</button>
+          <button className={aware === false ? "selected" : ""} onClick={() => setAware(false)}>아니오</button>
+        </div>
       </div>
+
       <button
+        className="btn-block"
         disabled={!ready || loading}
         onClick={() => onRun(() => api.submitYesNo(caseId, known, aware))}
       >
+        답변 제출 {!ready && "(2문항 모두 선택 후 활성화)"}
+      </button>
+    </div>
+  );
+}
+
+function FreeTextBlock({ caseId, onRun, loading, followup, conversation }) {
+  const [text, setText] = useState("");
+  const [listening, setListening] = useState(false);
+  const [supported, setSupported] = useState(true);
+  const [errorMsg, setErrorMsg] = useState(null);
+  const recognitionRef = useRef(null);
+
+  const followupQuestion = followup?.needs_followup ? followup.followup_question : null;
+  const question = followupQuestion || "상황을 간단히 말씀해주세요";
+  const priorTurn = conversation && conversation.length > 0 ? conversation[conversation.length - 1] : null;
+
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setSupported(false);
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = "ko-KR";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.onresult = (e) => {
+      let combined = "";
+      for (let i = 0; i < e.results.length; i++) combined += e.results[i][0].transcript;
+      setText(combined);
+    };
+    recognition.onstart = () => setErrorMsg(null);
+    recognition.onend = () => setListening(false);
+    recognition.onerror = (e) => {
+      setListening(false);
+      setErrorMsg(describeSttError(e.error));
+    };
+    recognitionRef.current = recognition;
+
+    // 이전에는 "다시 받아쓰기" 버튼을 눌러야만 인식이 시작됐는데, 질문이 뜨는 순간부터
+    // 자동으로 듣기 시작하는 게 자연스럽다(SttBlock의 autoTrigger와 동일한 패턴).
+    try {
+      recognition.start();
+      setListening(true);
+    } catch (err) {
+      if (err?.name !== "InvalidStateError") {
+        setErrorMsg(describeSttStartError(err));
+      }
+    }
+
+    return () => recognition.stop();
+  }, [question]);
+
+  const restart = () => {
+    setText("");
+    setErrorMsg(null);
+    try {
+      recognitionRef.current?.start();
+      setListening(true);
+    } catch (err) {
+      if (err?.name !== "InvalidStateError") {
+        setErrorMsg(describeSttStartError(err));
+      }
+    }
+  };
+
+  return (
+    <div className="verify-wrap">
+      <div className="eyebrow">고객에게 물어보세요</div>
+      <div className="verify-title">{question}</div>
+
+      {priorTurn && (
+        <div className="prior-answer">
+          <div className="label">직전 답변</div>
+          <div className="text">"{priorTurn.answer}"</div>
+        </div>
+      )}
+
+      <div className="freetext-panel">
+        {supported ? (
+          <>
+            <div className="freetext-panel-head">
+              <div className="dot" />
+              <div className="label">고객 답변 · {listening ? "음성으로 받아쓰는 중" : "받아쓰기 대기"}</div>
+              {listening && (
+                <div className="mini-wave">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <div key={i} className="bar" style={{ animationDelay: `${i * 0.12}s` }} />
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="freetext-answer-text">
+              {text || "음성 인식 대기 중이거나, 아래에서 직접 타이핑할 수 있습니다."}
+            </div>
+          </>
+        ) : (
+          <div className="freetext-answer-text">
+            <div className="hint2" style={{ marginBottom: 8 }}>
+              이 브라우저는 음성 인식을 지원하지 않습니다(Chrome/Edge 권장). 아래에 직접 입력해주세요.
+            </div>
+            <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="고객 답변을 입력하세요" />
+          </div>
+        )}
+      </div>
+
+      {errorMsg && <div className="stt-error-box">⚠ {errorMsg}</div>}
+
+      <div className="freetext-toolbar">
+        {supported && (
+          <>
+            <button className="btn-secondary" type="button" onClick={restart}>다시 받아쓰기</button>
+            <button className="btn-secondary" type="button" onClick={() => setSupported(false)}>직접 타이핑</button>
+          </>
+        )}
+        <div className="note">이번 답변이 마지막이면 자동으로 최종 판정으로 넘어갑니다.</div>
+      </div>
+
+      <button className="btn-block" disabled={!text || loading} onClick={() => onRun(() => api.submitFreeText(caseId, text))}>
         답변 제출
       </button>
     </div>
   );
 }
 
-function YesNoButtons({ value, onChange }) {
-  return (
-    <span className="yesno-buttons">
-      <button className={value === true ? "active" : ""} onClick={() => onChange(true)}>
-        예
-      </button>
-      <button className={value === false ? "active" : ""} onClick={() => onChange(false)}>
-        아니오
-      </button>
-    </span>
-  );
-}
+const ESCALATION_META = [
+  { action: "confirm_with_sender", t: "송금인에게 설명하고 진행 여부 확인", s: "가장 먼저 하세요", primary: true },
+  { action: "escalate_fsi", t: "내부·금감원 에스컬레이션", s: "로그에 기록됩니다" },
+  { action: "notify_guardian", t: "보호자 참고 알림", s: "고객 동의 후 발송" },
+  { action: "freeze_request", t: "골든타임 지급정지 요청", s: "이미 송금된 건에만 사용", needsSent: true },
+];
 
-function FreeTextBlock({ caseId, onRun, loading, followup }) {
-  const [text, setText] = useState("");
-  const followupQuestion = followup?.needs_followup ? followup.followup_question : null;
+function EscalationBlock({ caseId, onRun, loading, case: c }) {
+  const done = new Set((c.escalation_log || []).map((e) => e.action));
   return (
-    <div className="stage">
-      <h3>③ 자유텍스트 진술</h3>
-      {followupQuestion ? (
-        <p className="hint">후속 질문: {followupQuestion}</p>
-      ) : (
-        <p className="hint">"상황을 간단히 말씀해주세요" 라고 물은 뒤 고객 답변을 요약해서 입력하세요.</p>
-      )}
-      <textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} />
-      <button disabled={!text || loading} onClick={() => onRun(() => api.submitFreeText(caseId, text))}>
-        제출 (LLM 패턴 대조)
-      </button>
-    </div>
-  );
-}
-
-function EscalationBlock({ caseId, onRun, loading, alreadySent }) {
-  return (
-    <div className="stage stage-high">
-      <h3>위험 높음 · 조치</h3>
-      <div className="actions">
-        <button onClick={() => onRun(() => api.submitEscalation(caseId, "confirm_with_sender"))} disabled={loading}>
-          송금인 설명·진행여부 확인
-        </button>
-        <button onClick={() => onRun(() => api.submitEscalation(caseId, "escalate_fsi"))} disabled={loading}>
-          내부/금감원 에스컬레이션
-        </button>
-        <button onClick={() => onRun(() => api.submitEscalation(caseId, "notify_guardian"))} disabled={loading}>
-          보호자 참고 알림 (승인권한 없음)
-        </button>
-        {alreadySent && (
-          <button onClick={() => onRun(() => api.submitEscalation(caseId, "freeze_request"))} disabled={loading}>
-            골든타임 내 자동 지급정지 요청
-          </button>
-        )}
+    <div className="verify-wrap">
+      <div className="eyebrow">지금 할 조치 · 복수 선택 가능</div>
+      <div className="escalation-grid">
+        {ESCALATION_META.map((m) => {
+          const disabled = (m.needsSent && !c.already_sent) || loading;
+          const isDone = done.has(m.action);
+          const cls = disabled ? "" : isDone ? "done" : m.primary ? "primary" : "";
+          return (
+            <button
+              key={m.action}
+              className={`escalation-card ${cls}`}
+              disabled={disabled}
+              onClick={() => onRun(() => api.submitEscalation(caseId, m.action))}
+            >
+              <div className="t">{isDone ? `✓ ${m.t}` : m.t}</div>
+              <div className="s">{m.s}</div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
