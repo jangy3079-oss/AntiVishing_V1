@@ -96,6 +96,7 @@ def _start_case(payload: TransactionCreate):
         "tier1": t1,
         "tier2": None,
         "stt_result": None,
+        "stt_transcript": None,
         "yesno_answers": None,
         "freetext_analysis": None,
         "final_decision": None,
@@ -136,7 +137,7 @@ def submit_stt(case_id: str, payload: SttSubmit):
         raise HTTPException(400, "STT 분석은 Tier2로 확대된 케이스에서만 가능합니다.")
 
     result = stt_analysis.analyze_stt(payload.transcript)
-    store.update_case(case_id, stt_result=result)
+    store.update_case(case_id, stt_result=result, stt_transcript=payload.transcript)
     store.add_conversation(case_id, "(고객이 통화 중인 것으로 보여 창구 대화를 채록함)", payload.transcript)
     store.log_event(case_id, "stt_analyzed", result)
 
@@ -165,6 +166,33 @@ def submit_yesno(case_id: str, payload: YesNoAnswers):
         case_id, "이 돈의 정확한 용도를 알고 계신가요?", "예" if payload.aware_of_true_purpose else "아니오"
     )
     store.log_event(case_id, "yesno_evaluated", result)
+
+    # Y/N이 "정상"이어도 곧장 저위험으로 끝내지 않는다: 지인 사칭형 사기는 피해자 본인이
+    # 상대를 진짜 지인이라 믿기 때문에 Y/N에는 정상으로 답하기 마련이다. 이미 채록된 STT
+    # 진술이 있다면(예: "이전과 다른 계좌번호로 부탁받아 이상해서 방문") 그 진술 자체를
+    # 자유텍스트 사기 패턴 대조와 동일하게 한 번 더 검증한다.
+    stt_transcript = case.get("stt_transcript")
+    if result["clearly_normal"] and stt_transcript:
+        crosscheck = verification.evaluate_freetext(stt_transcript, case["tier2"], [])
+        store.update_case(case_id, freetext_analysis=crosscheck)
+        store.log_event(case_id, "yesno_crosscheck_analyzed", crosscheck)
+
+        if crosscheck["risk_level"] != "low":
+            if crosscheck["needs_followup"]:
+                store.update_case(
+                    case_id, status="AWAITING_FREETEXT", next_action="freetext",
+                    pending_freetext_question=crosscheck["followup_question"],
+                )
+                return store.get_case(case_id)
+            # 후속 질문 없이도 이미 판단이 선 경우(주로 high) 바로 최종 판정으로 넘어간다.
+            final = decision.make_final_decision(store.get_case(case_id))
+            high_risk = final["risk_level"] == "high"
+            store.update_case(
+                case_id, status="FINAL_HIGH_RISK" if high_risk else "FINAL_LOW_RISK",
+                final_decision=final, next_action="high_risk_actions" if high_risk else "none_completed",
+            )
+            store.log_event(case_id, "final_decision", final)
+            return store.get_case(case_id)
 
     if result["clearly_normal"]:
         final = decision.make_final_decision(store.get_case(case_id))

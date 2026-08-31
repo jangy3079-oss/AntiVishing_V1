@@ -56,6 +56,7 @@ class Case(BaseModel):
     tier1: Optional[Dict[str, Any]] = None
     tier2: Optional[Dict[str, Any]] = None
     stt_result: Optional[Dict[str, Any]] = None
+    stt_transcript: Optional[str] = None  # STT 원문(자유진술 대조용으로 별도 보관)
     yesno_answers: Optional[Dict[str, Any]] = None
     freetext_analysis: Optional[Dict[str, Any]] = None
     final_decision: Optional[Dict[str, Any]] = None
