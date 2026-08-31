@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -6,8 +8,9 @@ from app import store
 from app.models import (
     TransactionCreate, SttSubmit, YesNoAnswers, FreeTextSubmit, EscalationAction,
 )
+from app import llm_client
 from app.data import accounts
-from app.pipeline import tier1, tier2, stt_analysis, verification, decision
+from app.pipeline import tier1, tier2, stt_analysis, verification, decision, account_figures
 
 app = FastAPI(title="AntiVishing API")
 
@@ -227,6 +230,39 @@ def submit_escalation_action(case_id: str, payload: EscalationAction):
         store.update_case(case_id, status="GOLDEN_TIME_FREEZE_REQUESTED")
 
     return store.get_case(case_id)
+
+
+@app.get("/api/cases/{case_id}/account-figures")
+def get_account_figures(case_id: str):
+    """수취계좌가 정상/이상거래연루 모집단(AI-Hub 실측) 대비 어디에 위치하는지 그래프 3장 +
+    LLM 설명을 반환한다. Tier2가 실행된 케이스(즉, tier2 데이터가 있는 케이스)에서만 의미가
+    있다. 한 번 계산한 결과는 케이스에 캐시해서, "자세히 보기"를 다시 열어도 매번 그림을 다시
+    그리거나 Claude를 다시 호출하지 않는다."""
+    case = store.get_case(case_id)
+    if not case:
+        raise HTTPException(404, "케이스를 찾을 수 없습니다.")
+    if not case.get("tier2"):
+        raise HTTPException(400, "Tier2 심층 조사가 실행된 케이스에서만 계좌 위치 분석을 볼 수 있습니다.")
+
+    if case.get("account_figures"):
+        return case["account_figures"]
+
+    recipient = accounts.find_recipient(case["recipient_account_number"])
+    if not recipient:
+        raise HTTPException(404, "수취계좌 정보를 더 이상 찾을 수 없습니다(테스트 계좌 재생성으로 교체되었을 수 있음).")
+
+    csv_path = os.path.join(
+        os.path.dirname(__file__), "data", "account_transactions", recipient["transactions_csv"]
+    )
+    # 그래프 2장(극단치 쏠림 비교/정상군 중심 이탈 거리) — PCA 산점도는 정상·이상연루 두 그룹이
+    # 거의 겹쳐 위치 판단 기준으로 쓰기 어려워 폐기했다(account_figures.py 모듈 docstring 참고).
+    position = account_figures.compute_case_position(csv_path)
+    figures = account_figures.render_figures(position)
+    explanation = llm_client.explain_account_position(position)
+
+    result = {"figures": figures, "explanation": explanation, "position": position}
+    store.update_case(case_id, account_figures=result)
+    return result
 
 
 @app.get("/api/cases/{case_id}/log")

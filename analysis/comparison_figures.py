@@ -15,11 +15,20 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 from matplotlib.lines import Line2D
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 
-plt.rcParams["font.family"] = "Noto Sans CJK JP"  # Hangul 포함된 통합 CJK 폰트
+# "Noto Sans CJK JP" 이름만 지정하면 이 폰트가 없는 환경에서 한글이 네모(tofu)로 깨진다
+# (backend/app/pipeline/account_figures.py에서 실제로 발생 확인). 같은 번들 폰트를 사용해
+# 어떤 환경에서 실행하든 항상 한글이 정상 렌더링되게 한다.
+_KOREAN_FONT_PATH = os.path.join(os.path.dirname(__file__), "..", "backend", "app", "assets", "fonts", "NanumGothic-Regular.ttf")
+if os.path.exists(_KOREAN_FONT_PATH):
+    fm.fontManager.addfont(_KOREAN_FONT_PATH)
+    plt.rcParams["font.family"] = fm.FontProperties(fname=_KOREAN_FONT_PATH).get_name()
+else:
+    plt.rcParams["font.family"] = "Noto Sans CJK JP"
 plt.rcParams["axes.unicode_minus"] = False
 
 OUT_DIR = os.path.join(os.path.dirname(__file__), "figures")

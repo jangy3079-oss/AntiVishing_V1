@@ -42,6 +42,17 @@ def _get_text(resp) -> str:
     return "".join(parts)
 
 
+def _check_not_truncated(resp) -> None:
+    """max_tokens에 걸려 응답이 중간에 잘렸으면 즉시 명확한 에러를 던진다.
+    (안 이러면 잘린 JSON이 _extract_json에서 "JSON을 찾을 수 없다"는 애매한 에러로만
+    보여서, 진짜 원인이 max_tokens 부족이라는 걸 알기 어렵다 — 실제로 tier2_context가
+    큰 케이스에서 analyze_freetext가 이렇게 잘린 적이 있었다.)"""
+    if getattr(resp, "stop_reason", None) == "max_tokens":
+        raise ValueError(
+            "LLM 응답이 max_tokens 제한에 걸려 중간에 잘렸습니다. 호출부의 max_tokens 값을 늘려야 합니다."
+        )
+
+
 def _extract_json(text: str) -> dict:
     """모델 응답에서 JSON 블록만 추출해 파싱한다."""
     match = re.search(r"\{.*\}", text, re.DOTALL)
@@ -71,6 +82,7 @@ STT 텍스트:
         max_tokens=1024,
         messages=[{"role": "user", "content": prompt}],
     )
+    _check_not_truncated(resp)
     return _extract_json(_get_text(resp))
 
 
@@ -128,10 +140,45 @@ def analyze_freetext(
 }}"""
     resp = _get_client().messages.create(
         model=_MODEL,
-        max_tokens=1200,
+        # tier2_context(계좌 특징/사유 목록)가 큰 케이스에서 reasoning이 길어지며 실제로
+        # 1200으로는 JSON이 중간에 잘리는 문제가 있었다 (닫는 "}" 전에 max_tokens 도달).
+        max_tokens=2000,
         messages=[{"role": "user", "content": prompt}],
     )
+    _check_not_truncated(resp)
     return _extract_json(_get_text(resp))
+
+
+def explain_account_position(position: dict) -> str:
+    """수취계좌 위치 분석(account_figures.compute_case_position 결과)을 근거로,
+    이 계좌가 정상/이상연루 모집단 중 어디에 더 가까운지, 어떤 지표가 특히 벗어났는지를
+    자연어로 설명한다. 숫자를 지어내지 않도록 계산된 값만 프롬프트에 넣고 그대로 인용하게 한다."""
+    prompt = f"""당신은 은행 창구 직원에게 "이 수취계좌가 왜 이런 위험 신호를 보였는지"를
+데이터에 기반해 설명하는 에이전트입니다.
+
+아래는 AI-Hub 실제 금융거래 데이터로 만든 정상/이상거래연루 계좌 모집단을 기준선으로,
+이번 케이스의 수취계좌 위치를 계산한 결과입니다(전부 실제로 계산된 값이며, 새로운 숫자를
+지어내지 마세요. 아래 값만 인용하세요):
+
+{json.dumps(position, ensure_ascii=False, indent=2)}
+
+이 데이터를 보고 3~4문장의 자연스러운 한국어로 설명하세요:
+- 이 계좌가 정상군과 이상연루군 중 어느 쪽에 더 가까운지 (정상군 중심 이탈 거리 기준)
+- per_feature 중 정상 대비 배율(ratio_vs_normal)이 크게 벗어난 지표가 있다면 구체적으로 언급
+- tier2_rule_reasons/tier2_anomaly_flag와 앞뒤가 맞게 설명 (이미 잡힌 규칙과 모순되지 않게)
+- caveat 필드에 적힌 한계(관측 기간이 짧아 배율이 과장될 수 있음)를 반드시 감안해서, 배율 절대값을
+  그대로 강조하기보다 방향성 위주로 신중하게 서술하세요 (예: "802배"처럼 과장된 숫자를 그대로
+  강조하지 말고 "정상 범위보다 뚜렷하게 높다" 정도로 표현)
+- 배율이나 거리가 애매하면 "단정할 수 없다"는 취지로 신중하게 서술 (과장 금지)
+
+불릿포인트 없이 문장으로 서술하세요. JSON이 아닌 순수 텍스트로만 답하세요."""
+    resp = _get_client().messages.create(
+        model=_MODEL,
+        max_tokens=700,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    _check_not_truncated(resp)
+    return _get_text(resp).strip()
 
 
 def generate_xai_explanation(case_summary: dict) -> str:
@@ -149,4 +196,5 @@ def generate_xai_explanation(case_summary: dict) -> str:
         max_tokens=800,
         messages=[{"role": "user", "content": prompt}],
     )
+    _check_not_truncated(resp)
     return _get_text(resp).strip()

@@ -50,4 +50,5 @@ export const api = {
       body: JSON.stringify({ action }),
     }).then(handle),
   getLog: (caseId) => fetch(`${BASE}/cases/${caseId}/log`).then(handle),
+  getAccountFigures: (caseId) => fetch(`${BASE}/cases/${caseId}/account-figures`).then(handle),
 };
