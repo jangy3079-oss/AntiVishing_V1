@@ -25,7 +25,7 @@ export default function VerificationPanel({ case: c, onUpdated }) {
     return (
       <div className="verify-wrap">
         {c.next_action === "stt_optional_or_yesno" && (
-          <SttBlock caseId={c.id} onRun={run} loading={loading} autoTrigger={autoTrigger} />
+          <SttGate caseId={c.id} onRun={run} loading={loading} autoTrigger={autoTrigger} />
         )}
         {!autoTrigger && <YesNoBlock caseId={c.id} onRun={run} loading={loading} />}
         {error && <div className="field-error-msg">{error}</div>}
@@ -102,7 +102,29 @@ function useElapsedTimer(active) {
   return `${mm}:${ss}`;
 }
 
-function SttBlock({ caseId, onRun, loading, autoTrigger }) {
+function SttGate({ caseId, onRun, loading, autoTrigger }) {
+  // 자동으로 강한 의심 신호가 잡힌 거래(autoTrigger)에서는 STT 화면으로 곧장 들어가기 전에,
+  // "지금 상대와 통화 중인가요?"부터 먼저 확인한다. 답에 따라 SttBlock에 다른 안내 문구를
+  // 보여준다(통화 중이면 "대화를 그대로 두세요", 아니면 "직원과의 대화를 녹음합니다").
+  const [onCall, setOnCall] = useState(null);
+
+  if (autoTrigger && onCall === null) {
+    return (
+      <div className="suspicion-gate">
+        <div className="eyebrow">의심 정황이 발견되었습니다</div>
+        <div className="verify-title md">지금 상대와 통화 중인가요?</div>
+        <div className="yn-buttons">
+          <button onClick={() => setOnCall(true)}>예</button>
+          <button onClick={() => setOnCall(false)}>아니오</button>
+        </div>
+      </div>
+    );
+  }
+
+  return <SttBlock caseId={caseId} onRun={onRun} loading={loading} autoTrigger={autoTrigger} onCall={onCall} />;
+}
+
+function SttBlock({ caseId, onRun, loading, autoTrigger, onCall }) {
   const [transcript, setTranscript] = useState("");
   const [listening, setListening] = useState(false);
   const [supported, setSupported] = useState(true);
@@ -178,10 +200,10 @@ function SttBlock({ caseId, onRun, loading, autoTrigger }) {
     return (
       <div className="stt-optin-row">
         <div>
-          <div className="t">통화 중이라면 음성 인식을 켤 수 있습니다</div>
+          <div className="t">고객과 나눈 대화를 기록해두면 판단에 참고됩니다</div>
           <div className="s">
             {supported
-              ? "선택 사항 · 이 거래에서는 자동으로 켜지지 않았습니다"
+              ? "선택 사항 · 통화 중이 아니어도 괜찮습니다. 고객이 설명한 내용(예: 평소와 다른 계좌번호로 안내받음, 목소리는 맞는 것 같은데 뭔가 이상했음 등)을 그대로 기록해주세요"
               : "이 브라우저는 음성 인식을 지원하지 않습니다(Chrome/Edge 권장). 아래에 직접 입력해주세요."}
           </div>
         </div>
@@ -199,7 +221,7 @@ function SttBlock({ caseId, onRun, loading, autoTrigger }) {
       )}
       {autoTrigger && (
         <div className="h-page" style={{ fontSize: 38, marginBottom: 22 }}>
-          고객이 통화 중인지 확인하고, 대화를 그대로 두세요
+          {onCall ? "고객이 통화 중인지 확인하고, 대화를 그대로 두세요" : "직원과의 대화를 녹음합니다"}
         </div>
       )}
 
@@ -209,7 +231,7 @@ function SttBlock({ caseId, onRun, loading, autoTrigger }) {
             rows={3}
             value={transcript}
             onChange={(e) => setTranscript(e.target.value)}
-            placeholder="예: 검찰청이라면서 안전계좌로 옮기라고 계속 통화중이에요"
+            placeholder="예: 검찰청이라면서 안전계좌로 옮기라고 계속 통화중이에요 / 목소리는 친구 같았는데 평소와 다른 계좌번호를 알려줘서 이상해서 왔어요"
           />
         </div>
       ) : (

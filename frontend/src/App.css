@@ -352,6 +352,15 @@ button, input, textarea, select { font-family: inherit; }
 }
 .stt-optin-row .t { font: 600 16px/1 var(--font-sans); color: var(--text-2); }
 .stt-optin-row .s { font: 400 14px/1 var(--font-sans); color: var(--text-5); margin-top: 5px; }
+
+.suspicion-gate {
+  background: var(--red-bg); border-left: 8px solid var(--red); padding: 32px 36px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+.suspicion-gate .eyebrow { color: var(--red-dark); }
+.suspicion-gate .verify-title.md { color: var(--red-dark); }
+.suspicion-gate .yn-buttons button { background: #fff; }
+.suspicion-gate .yn-buttons button.selected { background: var(--red); }
 .btn-outline-navy {
   margin-left: auto; background: #fff; box-shadow: inset 0 0 0 2px var(--navy); color: var(--navy);
   padding: 20px 26px; font: 700 17px/1 var(--font-sans); border: none; cursor: pointer;
